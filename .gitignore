@@ -1,0 +1,10 @@
+node_modules
+dist
+out
+build
+resources
+.DS_Store
+.eslintcache
+*.log*
+
+settings.json

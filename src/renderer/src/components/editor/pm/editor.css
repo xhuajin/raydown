@@ -1,0 +1,176 @@
+/* ProseMirror 便签内容排版。依赖 styles/index.css 里的 Tailwind v4 @theme 变量。 */
+
+.ProseMirror {
+    outline: none;
+    min-height: 100%;
+    caret-color: currentColor;
+}
+
+/* 空文档占位文本（通过编辑器容器上的 data-placeholder 提供） */
+.ProseMirror:empty .proseMirrorPlaceholder,
+.ProseMirror[data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    color: var(--color-muted-foreground);
+    pointer-events: none;
+    height: 0;
+    float: left;
+}
+
+.ProseMirror h1 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    line-height: 1.3;
+    margin: 0.6em 0 0.3em;
+}
+.ProseMirror h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    line-height: 1.3;
+    margin: 0.55em 0 0.25em;
+}
+.ProseMirror h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.3;
+    margin: 0.5em 0 0.25em;
+}
+
+.ProseMirror p {
+    margin: 0.35em 0;
+}
+.ProseMirror p:first-child {
+    margin-top: 0;
+}
+
+.ProseMirror ul {
+    list-style: disc;
+    padding-left: 1.35rem;
+}
+.ProseMirror ol {
+    list-style: decimal;
+    padding-left: 1.35rem;
+}
+.ProseMirror li {
+    margin: 0.1em 0;
+}
+
+/* ── 任务列表：checkbox 由 li 内 span.task-checkbox 绘制（非受控 input）── */
+.ProseMirror li[data-checked] {
+    list-style: none;
+    position: relative;
+}
+.ProseMirror li[data-checked] > .task-item-content {
+    display: block;
+    min-width: 0;
+}
+.ProseMirror li[data-checked] > .task-checkbox {
+    position: absolute;
+    left: -1.2rem;
+    top: 0.45em;
+    box-sizing: border-box;
+    width: 1em;
+    height: 1em;
+    border: 1.5px solid var(--color-muted-foreground);
+    border-radius: 0.25em;
+    cursor: pointer;
+    user-select: none;
+}
+.ProseMirror li[data-checked='true'] > .task-checkbox {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+}
+.ProseMirror li[data-checked='true'] > .task-checkbox::after {
+    content: '';
+    position: absolute;
+    left: 0.24em;
+    top: 0.08em;
+    width: 0.3em;
+    height: 0.56em;
+    border-right: 2px solid var(--color-background);
+    border-bottom: 2px solid var(--color-background);
+    transform: rotate(40deg);
+}
+.ProseMirror li[data-checked='true'] {
+    color: var(--color-muted-foreground);
+}
+
+/* ── 数学公式（prosemirror-math 的 NodeView：光标进入显示源码，移出显示渲染结果）── */
+.ProseMirror .prosemirror-math-inline {
+    white-space: nowrap;
+}
+.ProseMirror .prosemirror-math-source code,
+.ProseMirror .prosemirror-math-source pre {
+    outline: none;
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    background: var(--color-muted);
+    border-radius: 4px;
+}
+.ProseMirror .prosemirror-math-source code {
+    display: inline-block;
+    padding: 0.1em 0.3em;
+}
+.ProseMirror .prosemirror-math-block {
+    display: block;
+    margin: 0.5em 0;
+}
+.ProseMirror .prosemirror-math-block pre {
+    margin: 0;
+    padding: 0.5rem 0.75rem;
+    white-space: pre;
+}
+/* 只对块级公式的展示区生效；行内公式里也有同名 span，不能块化 */
+.ProseMirror .prosemirror-math-block > .prosemirror-math-display {
+    display: block;
+    overflow-x: auto;
+    padding: 0.15em 0;
+}
+.ProseMirror .prosemirror-math-block > .prosemirror-math-display .katex-display {
+    margin: 0;
+}
+
+.ProseMirror blockquote {
+    border-left: 3px solid var(--border);
+    padding-left: 0.75rem;
+    margin: 0.4em 0;
+    color: var(--color-muted-foreground);
+}
+
+.ProseMirror pre {
+    background: var(--color-muted);
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin: 0.5em 0;
+    white-space: pre;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+}
+.ProseMirror code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    background: var(--color-muted);
+    border-radius: 4px;
+    padding: 0.1em 0.3em;
+}
+.ProseMirror pre code {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+}
+
+.ProseMirror a {
+    color: var(--color-primary);
+    text-decoration: underline;
+}
+
+.ProseMirror hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0.8em 0;
+}
+
+/* 拖拽选区高亮跟随主题 */
+.ProseMirror ::selection {
+    background: var(--color-muted);
+}
