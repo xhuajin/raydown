@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, clipboard } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, clipboard, Tray, Menu, nativeImage } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -13,6 +13,42 @@ import {
 
 // 保存主窗口引用
 let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
+
+// 标记是否为用户主动退出（托盘菜单「退出」），否则点关闭只是隐藏到后台
+let isQuitting = false
+
+function createTray(): void {
+    tray = new Tray(nativeImage.createFromPath(icon))
+    tray.setToolTip('RayDown')
+    tray.setContextMenu(
+        Menu.buildFromTemplate([
+            {
+                label: '显示 RayDown',
+                click: () => {
+                    mainWindow?.show()
+                }
+            },
+            { type: 'separator' },
+            {
+                label: '退出',
+                click: () => {
+                    isQuitting = true
+                    app.quit()
+                }
+            }
+        ])
+    )
+    // 点击托盘图标重新显示窗口
+    tray.on('click', () => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.show()
+            mainWindow.focus()
+        } else {
+            createWindow()
+        }
+    })
+}
 
 function createWindow(): void {
     // Create the browser window.
@@ -43,6 +79,14 @@ function createWindow(): void {
 
     mainWindow.on('unmaximize', () => {
         mainWindow?.webContents.send('window-maximized-changed', false)
+    })
+
+    // 🎯 点关闭时不退出应用，隐藏到后台（托盘），由托盘菜单或系统级退出才真正关闭
+    mainWindow.on('close', (event) => {
+        if (!isQuitting) {
+            event.preventDefault()
+            mainWindow?.hide()
+        }
     })
 
     // 窗口关闭时清空引用
@@ -139,22 +183,27 @@ app.whenReady().then(() => {
     // 🎯 打开 SQLite 数据库（数据存 userData/raydown.db）
     openDatabase(join(app.getPath('userData'), 'raydown.db'))
 
+    // 🎯 创建托盘图标（关闭窗口后仍可从托盘唤起）
+    createTray()
+
     createWindow()
 
     app.on('activate', function () {
         // On macOS it's common to re-create a window in the app when the
         // dock icon is clicked and there are no other windows open.
         if (BrowserWindow.getAllWindows().length === 0) createWindow()
+        else mainWindow?.show()
     })
 })
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+// 主动退出（isQuitting）时才允许真正关闭窗口并退出应用
+app.on('before-quit', () => {
+    isQuitting = true
+})
+
+// 隐藏到后台后窗口不会真正关闭，此事件仅在主动退出时触发
 app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        app.quit()
-    }
+    app.quit()
 })
 
 // 应用退出前优雅关闭数据库

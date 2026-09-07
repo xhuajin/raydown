@@ -22,9 +22,8 @@ function WindowControls() {
             title: pinned ? '取消置顶' : '置顶',
             className: cn(
                 'h-full w-10 flex items-center justify-center transition-colors hover:bg-foreground/10',
-                pinned ? 'text-foreground/75' : 'text-foreground/40'
-            ),
-            iconClassName: pinned ? 'fill-current' : ''
+                pinned ? 'text-foreground' : 'text-foreground/40'
+            )
         }),
         [pinned]
     )
@@ -39,7 +38,7 @@ function WindowControls() {
                             title={pinButton.title}
                             onClick={togglePin}
                         >
-                            <Pin size={14} className={pinButton.iconClassName} />
+                            <Pin size={14} />
                         </button>
                     }
                 />
