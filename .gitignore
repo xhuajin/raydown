@@ -7,5 +7,6 @@ temp
 .eslintcache
 .reprotest
 *.log*
+.zcode
 
 settings.json
