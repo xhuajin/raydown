@@ -2,7 +2,7 @@ import dayjs from 'dayjs'
 import type { JSONDoc } from '@renderer/components/editor/pm/doc'
 
 /**
- * 便签数据结构。
+ * 笔记数据结构。
  * content 为 ProseMirror 文档 JSON（doc → toJSON）。
  * 存储于主进程 SQLite（userData/raydown.db），渲染层经 IPC 访问。
  */
@@ -13,6 +13,8 @@ export interface Note {
     ctime: string
     /** 最近一次编辑时的光标文档位置（0 表示文档开头） */
     cursor: number
+    /** 所属工作区 id；空/NULL 表示默认工作区 */
+    workspace_id: string | null
 }
 
 /** IPC 传输用的扁平结构：content 为 JSON 字符串 */
@@ -22,17 +24,23 @@ interface NoteWire {
     mtime: string
     ctime: string
     cursor: number
+    workspace_id: string | null
 }
 
 function toWire(note: Note): NoteWire {
-    return { ...note, content: JSON.stringify(note.content), cursor: note.cursor ?? 0 }
+    return {
+        ...note,
+        content: JSON.stringify(note.content),
+        cursor: note.cursor ?? 0,
+        workspace_id: note.workspace_id ?? null
+    }
 }
 
 function toNote(wire: NoteWire): Note {
     return { ...wire, content: JSON.parse(wire.content), cursor: wire.cursor ?? 0 }
 }
 
-/** 查询全部便签，按修改时间倒序（最新在前） */
+/** 查询全部笔记，按修改时间倒序（最新在前） */
 export async function listNotes(): Promise<Note[]> {
     const wires = await window.electronAPI.notes.list()
     return wires.map(toNote)
@@ -44,14 +52,19 @@ export interface NoteSource {
 
 export const NoteSource: NoteSource = { DESKTOP: 'desktop' }
 
-export async function createNote(content: JSONDoc, cursor = 0): Promise<Note> {
+export async function createNote(
+    content: JSONDoc,
+    cursor = 0,
+    workspaceId: string | null = null
+): Promise<Note> {
     const now = dayjs().toISOString()
     const note: Note = {
         id: createNoteId(),
         content,
         mtime: now,
         ctime: now,
-        cursor
+        cursor,
+        workspace_id: workspaceId
     }
     await window.electronAPI.notes.create(toWire(note))
     return note
@@ -73,6 +86,12 @@ export async function updateNote(
 
 export async function deleteNote(id: string): Promise<void> {
     await window.electronAPI.notes.remove(id)
+}
+
+/** 把便签移入指定工作区（workspaceId 为 null 表示默认工作区） */
+export async function moveNoteToWorkspace(id: string, workspaceId: string | null): Promise<Note> {
+    const wire = await window.electronAPI.notes.moveWorkspace(id, workspaceId)
+    return toNote(wire)
 }
 
 export function createNoteId(): string {

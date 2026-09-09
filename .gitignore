@@ -3,8 +3,10 @@ dist
 out
 build
 resources
+temp
 .DS_Store
 .eslintcache
+.reprotest
 *.log*
 
 settings.json

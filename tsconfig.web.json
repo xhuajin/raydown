@@ -7,6 +7,9 @@
     "src/renderer/src/**/*.d.ts",
     "src/preload/*.d.ts"
   ],
+  "exclude": [
+    "src/renderer/src/temp"
+  ],
   "compilerOptions": {
     "composite": true,
     "jsx": "react-jsx",

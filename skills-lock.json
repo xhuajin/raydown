@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "tiptap": {
+      "source": "ueberdosis/tiptap",
+      "sourceType": "github",
+      "skillPath": "skills/tiptap/SKILL.md",
+      "computedHash": "711e1269a07973fb2645337fa4b4eacfb2afab188911105b1090d0d7de138b9c"
+    }
+  }
+}

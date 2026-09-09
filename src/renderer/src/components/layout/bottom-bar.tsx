@@ -8,9 +8,10 @@ import { useNoteStore } from '@renderer/store/note-store'
 import { textOf } from '@renderer/components/editor/pm/doc'
 import { cn } from '@renderer/lib/utils'
 import { KEYMAP, registerKeymapHandler } from '@renderer/store/keymap-store'
+import { DEFAULT_WORKSPACE_ID } from '@renderer/api/workspaces'
 
 import { ModeToggle } from '../mode-toggle'
-import { PenIcon, CopyIcon, ImageIcon, Trash2Icon } from 'lucide-react'
+import { PenIcon, CopyIcon, Trash2Icon, FolderInput, Check } from 'lucide-react'
 import {
     DropdownMenu,
     DropdownMenuTrigger,
@@ -18,7 +19,11 @@ import {
     DropdownMenuGroup,
     DropdownMenuItem,
     DropdownMenuShortcut,
-    DropdownMenuSeparator
+    DropdownMenuSeparator,
+    DropdownMenuLabel,
+    DropdownMenuSub,
+    DropdownMenuSubTrigger,
+    DropdownMenuSubContent
 } from '../ui/dropdown-menu'
 
 /** ↵ 提示键 */
@@ -56,8 +61,27 @@ export function BottomBar() {
     const actionMenuOpen = useNoteStore((s) => s.actionMenuOpen)
     const setActionMenuOpen = useNoteStore((s) => s.setActionMenuOpen)
     const toggleToolbar = useNoteStore((s) => s.toggleToolbar)
+    const workspaces = useNoteStore((s) => s.workspaces)
+    const moveSelectedToWorkspace = useNoteStore((s) => s.moveSelectedToWorkspace)
     // 删除二次确认：第一次激活 Delete 项时武装，第二次（Enter 或点击）才真正删除
     const [deleteArmed, setDeleteArmed] = useState(false)
+
+    /** 当前选中便签归属的工作区 id（空/NULL 归默认） */
+    const noteWorkspaceId = selectedNote?.workspace_id ?? DEFAULT_WORKSPACE_ID
+
+    /** 把当前选中便签移入指定工作区 */
+    const handleMoveToWorkspace = async (workspaceId: string) => {
+        if (!selectedId) return
+        await moveSelectedToWorkspace(workspaceId)
+        const target = workspaces.find((w) => w.id === workspaceId)
+        pushMessage(
+            workspaceId === DEFAULT_WORKSPACE_ID
+                ? '已移至「全部便签」'
+                : `已移至「${target?.name ?? '工作区'}」`,
+            'success'
+        )
+        setActionMenuOpen(false)
+    }
 
     const inEditor = page === 'editor'
 
@@ -69,7 +93,7 @@ export function BottomBar() {
             return true
         })
         return unregister
-    }, [inEditor, toggleToolbar])
+    }, [inEditor, toggleToolbar, registerKeymapHandler])
 
     // —— 列表页操作：Ctrl+K 打开 / 关闭右侧 ActionPanel ——
     useEffect(() => {
@@ -79,7 +103,7 @@ export function BottomBar() {
             return true
         })
         return unregister
-    }, [inEditor, setActionMenuOpen])
+    }, [inEditor, setActionMenuOpen, registerKeymapHandler])
 
     // —— 列表页全局快捷键：复制 / 分享占位 / 删除 ——
     useEffect(() => {
@@ -88,7 +112,7 @@ export function BottomBar() {
         const copyNote = () => {
             if (!selectedNote) return false
             void navigator.clipboard.writeText(textOf(selectedNote.content))
-            pushMessage('已复制便签内容', 'success')
+            pushMessage('已复制笔记内容', 'success')
             return true
         }
 
@@ -102,13 +126,13 @@ export function BottomBar() {
             const note = selectedNote
             if (
                 !window.confirm(
-                    `确定删除便签「${note ? textOf(note.content).slice(0, 20) : '未命名'}」？`
+                    `确定删除笔记「${note ? textOf(note.content).slice(0, 20) : '未命名'}」？`
                 )
             ) {
                 return true
             }
             void remove(selectedId)
-            pushMessage('已删除便签', 'success')
+            pushMessage('已删除笔记', 'success')
             return true
         }
 
@@ -120,20 +144,19 @@ export function BottomBar() {
             unrefShare()
             unrefDelete()
         }
-    }, [inEditor, selectedNote, selectedId, remove, pushMessage])
+    }, [inEditor, selectedNote, selectedId, remove, pushMessage, registerKeymapHandler])
 
     // —— 列表页内删除 / 编辑：把菜单项动作走通 ——
     const handleEdit = () => openSelectedNote()
     const handleCopy = () => {
         if (!selectedNote) return
         void navigator.clipboard.writeText(textOf(selectedNote.content))
-        pushMessage('已复制便签内容', 'success')
+        pushMessage('已复制笔记内容', 'success')
     }
-    const handleShare = () => pushMessage('分享功能开发中', 'info')
     const handleDelete = () => {
         if (!selectedId) return
         void remove(selectedId)
-        pushMessage('已删除便签', 'success')
+        pushMessage('已删除笔记', 'success')
     }
 
     /** Delete 菜单项激活：第一次进入确认态，第二次确认删除 */
@@ -192,14 +215,12 @@ export function BottomBar() {
                         />
                         <DropdownMenuContent align="end" className="w-52">
                             <DropdownMenuGroup>
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                 <DropdownMenuItem className="text-[13px]" onClick={handleEdit}>
                                     <PenIcon size={14} />
                                     <span>Edit</span>
                                     <DropdownMenuShortcut>{kbdEnter()}</DropdownMenuShortcut>
                                 </DropdownMenuItem>
-                            </DropdownMenuGroup>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuGroup>
                                 <DropdownMenuItem className="text-[13px]" onClick={handleCopy}>
                                     <CopyIcon size={14} />
                                     <span>Copy</span>
@@ -210,7 +231,7 @@ export function BottomBar() {
                                         </KbdGroup>
                                     </DropdownMenuShortcut>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem className="text-[13px]" onClick={handleShare}>
+                                {/* <DropdownMenuItem className="text-[13px]" onClick={handleShare}>
                                     <ImageIcon size={14} />
                                     <span>Share</span>
                                     <DropdownMenuShortcut>
@@ -219,7 +240,32 @@ export function BottomBar() {
                                             {kbdKey('S')}
                                         </KbdGroup>
                                     </DropdownMenuShortcut>
-                                </DropdownMenuItem>
+                                </DropdownMenuItem> */}
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger className="text-[13px]">
+                                        <FolderInput size={14} />
+                                        <span>切换工作区</span>
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent className="w-auto min-w-36">
+                                        {workspaces.map((ws) => {
+                                            const current = noteWorkspaceId === ws.id
+                                            return (
+                                                <DropdownMenuItem
+                                                    key={ws.id}
+                                                    className="text-[13px]"
+                                                    onClick={() =>
+                                                        void handleMoveToWorkspace(ws.id)
+                                                    }
+                                                >
+                                                    <span className="flex-1 truncate">
+                                                        {ws.name}
+                                                    </span>
+                                                    {current && <Check size={14} />}
+                                                </DropdownMenuItem>
+                                            )
+                                        })}
+                                    </DropdownMenuSubContent>
+                                </DropdownMenuSub>
                             </DropdownMenuGroup>
 
                             <DropdownMenuSeparator />

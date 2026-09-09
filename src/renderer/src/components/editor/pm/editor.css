@@ -1,4 +1,4 @@
-/* ProseMirror 便签内容排版。依赖 styles/index.css 里的 Tailwind v4 @theme 变量。 */
+/* Tiptap/ProseMirror 笔记内容排版。依赖 styles/index.css 里的 Tailwind v4 @theme 变量。 */
 
 .ProseMirror {
     outline: none;
@@ -6,9 +6,9 @@
     caret-color: currentColor;
 }
 
-/* 空文档占位文本（通过编辑器容器上的 data-placeholder 提供） */
-.ProseMirror:empty .proseMirrorPlaceholder,
-.ProseMirror[data-placeholder]:empty::before {
+/* 空文档占位文本：Tiptap Placeholder 扩展给空段落加 .is-empty + data-placeholder */
+.ProseMirror p.is-editor-empty:first-child::before,
+.ProseMirror p.is-empty::before {
     content: attr(data-placeholder);
     color: var(--color-muted-foreground);
     pointer-events: none;
@@ -54,42 +54,33 @@
     margin: 0.1em 0;
 }
 
-/* ── 任务列表：checkbox 由 li 内 span.task-checkbox 绘制（非受控 input）── */
+/* ── 任务列表：checkbox 由 Tiptap TaskItem 的 NodeView 渲染（li[data-checked] > label > input[type=checkbox]）。
+   data-checked 在 NodeView update() 里与 node.attrs.checked 同步，未勾选时是 "false"，不会误灰。── */
 .ProseMirror li[data-checked] {
     list-style: none;
     position: relative;
+    padding-top: 0.13em;
 }
-.ProseMirror li[data-checked] > .task-item-content {
-    display: block;
-    min-width: 0;
-}
-.ProseMirror li[data-checked] > .task-checkbox {
+.ProseMirror li[data-checked] > label {
     position: absolute;
     left: -1.2rem;
-    top: 0.45em;
-    box-sizing: border-box;
-    width: 1em;
-    height: 1em;
-    border: 1.5px solid var(--color-muted-foreground);
-    border-radius: 0.25em;
+    top: 0.31em; /* 相对首行 line-height(1.625) 垂直居中 1em 高的方框 */
+    display: block;
     cursor: pointer;
     user-select: none;
 }
-.ProseMirror li[data-checked='true'] > .task-checkbox {
-    border-color: var(--color-primary);
-    background: var(--color-primary);
+/* 任务项内容包在一个子 div 里，其首段默认带 .ProseMirror p 的上边距(0.35em)，
+   会把首行文字往下推，与绝对定位的 checkbox 错位；此处归零，保证同位对齐。 */
+.ProseMirror li[data-checked] > div > p:first-child {
+    margin-top: 0;
 }
-.ProseMirror li[data-checked='true'] > .task-checkbox::after {
-    content: '';
-    position: absolute;
-    left: 0.24em;
-    top: 0.08em;
-    width: 0.3em;
-    height: 0.56em;
-    border-right: 2px solid var(--color-background);
-    border-bottom: 2px solid var(--color-background);
-    transform: rotate(40deg);
+.ProseMirror li[data-checked] > label > input[type='checkbox'] {
+    width: 1em;
+    height: 1em;
+    cursor: pointer;
+    accent-color: var(--color-primary);
 }
+/* 已勾选任务项文本降低对比度 */
 .ProseMirror li[data-checked='true'] {
     color: var(--color-muted-foreground);
 }
@@ -146,9 +137,17 @@
     font-family: var(--font-mono);
     font-size: 0.875em;
 }
+/* 代码块横滚动条 hover 时用默认光标，避免仍是 I 字形文本光标 */
+.ProseMirror pre::-webkit-scrollbar-thumb {
+    cursor: default;
+}
+.ProseMirror pre::-webkit-scrollbar-thumb:hover {
+    cursor: default;
+}
 .ProseMirror code {
     font-family: var(--font-mono);
     font-size: 0.875em;
+    font-weight: 500;
     background: var(--color-muted);
     border-radius: 4px;
     padding: 0.1em 0.3em;
@@ -157,6 +156,9 @@
     background: transparent;
     padding: 0;
     border-radius: 0;
+}
+.ProseMirror code::selection {
+    background: color-mix(in oklab, var(--foreground) 12%, transparent);
 }
 
 .ProseMirror a {
@@ -168,6 +170,14 @@
     border: none;
     border-top: 1px solid var(--border);
     margin: 0.8em 0;
+}
+
+/* 粘贴/插入的图片：不溢出编辑器宽度，居中显示 */
+.ProseMirror img {
+    max-width: 100%;
+    display: block;
+    margin: 0.5em auto;
+    border-radius: 6px;
 }
 
 /* 拖拽选区高亮跟随主题 */

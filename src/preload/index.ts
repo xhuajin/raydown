@@ -1,13 +1,20 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-// 便签数据结构（与渲染层 api/notes.ts 的 Note 一致，content 为 JSON 字符串）
+// 笔记数据结构（与渲染层 api/notes.ts 的 Note 一致，content 为 JSON 字符串）
 export interface NoteApi {
     id: string
     content: string
     mtime: string
     ctime: string
     cursor: number
+    workspace_id: string | null
+}
+
+// 工作区数据结构（与渲染层 api/workspaces.ts 的 Workspace 一致；无展示排序字段）
+export interface WorkspaceApi {
+    id: string
+    name: string
 }
 
 // 定义 API 类型
@@ -26,10 +33,20 @@ export interface ElectronAPI {
             payload: { content: string; mtime: string; cursor: number }
         ) => Promise<NoteApi>
         remove: (id: string) => Promise<boolean>
+        moveWorkspace: (id: string, workspaceId: string | null) => Promise<NoteApi>
+    }
+    workspaces: {
+        list: () => Promise<WorkspaceApi[]>
+        create: (workspace: WorkspaceApi) => Promise<WorkspaceApi>
+        rename: (id: string, name: string) => Promise<WorkspaceApi>
+        remove: (id: string) => Promise<boolean>
     }
     clipboard: {
         readText: () => Promise<string>
         readHTML: () => Promise<string>
+    }
+    images: {
+        save: (data: Uint8Array, ext: string) => Promise<string>
     }
 }
 
@@ -60,12 +77,25 @@ const api: ElectronAPI = {
         list: () => ipcRenderer.invoke('notes:list'),
         create: (note) => ipcRenderer.invoke('notes:create', note),
         update: (id, payload) => ipcRenderer.invoke('notes:update', id, payload),
-        remove: (id) => ipcRenderer.invoke('notes:delete', id)
+        remove: (id) => ipcRenderer.invoke('notes:delete', id),
+        moveWorkspace: (id, workspaceId) =>
+            ipcRenderer.invoke('notes:move-workspace', id, workspaceId)
+    },
+
+    workspaces: {
+        list: () => ipcRenderer.invoke('workspaces:list'),
+        create: (workspace) => ipcRenderer.invoke('workspaces:create', workspace),
+        rename: (id, name) => ipcRenderer.invoke('workspaces:rename', id, name),
+        remove: (id) => ipcRenderer.invoke('workspaces:delete', id)
     },
 
     clipboard: {
         readText: () => ipcRenderer.invoke('clipboard:read-text'),
         readHTML: () => ipcRenderer.invoke('clipboard:read-html')
+    },
+
+    images: {
+        save: (data, ext) => ipcRenderer.invoke('images:save', data, ext)
     }
 }
 

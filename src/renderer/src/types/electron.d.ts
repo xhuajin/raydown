@@ -11,7 +11,14 @@ declare global {
             onMaximizedChange: (callback: (isMaximized: boolean) => void) => () => void
             notes: {
                 list: () => Promise<
-                    { id: string; content: string; mtime: string; ctime: string; cursor: number }[]
+                    {
+                        id: string
+                        content: string
+                        mtime: string
+                        ctime: string
+                        cursor: number
+                        workspace_id: string | null
+                    }[]
                 >
                 create: (note: {
                     id: string
@@ -19,12 +26,14 @@ declare global {
                     mtime: string
                     ctime: string
                     cursor: number
+                    workspace_id: string | null
                 }) => Promise<{
                     id: string
                     content: string
                     mtime: string
                     ctime: string
                     cursor: number
+                    workspace_id: string | null
                 }>
                 update: (
                     id: string,
@@ -35,12 +44,36 @@ declare global {
                     mtime: string
                     ctime: string
                     cursor: number
+                    workspace_id: string | null
                 }>
+                remove: (id: string) => Promise<boolean>
+                moveWorkspace: (
+                    id: string,
+                    workspaceId: string | null
+                ) => Promise<{
+                    id: string
+                    content: string
+                    mtime: string
+                    ctime: string
+                    cursor: number
+                    workspace_id: string | null
+                }>
+            }
+            workspaces: {
+                list: () => Promise<{ id: string; name: string }[]>
+                create: (workspace: { id: string; name: string }) => Promise<{
+                    id: string
+                    name: string
+                }>
+                rename: (id: string, name: string) => Promise<{ id: string; name: string }>
                 remove: (id: string) => Promise<boolean>
             }
             clipboard: {
                 readText: () => Promise<string>
                 readHTML: () => Promise<string>
+            }
+            images: {
+                save: (data: Uint8Array, ext: string) => Promise<string>
             }
         }
     }

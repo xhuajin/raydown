@@ -3,7 +3,7 @@ export const KEYMAP = {
     openNote: 'Enter',
     actionsMenu: 'Ctrl+K',
     toggleToolbar: 'Ctrl+T',
-    noteList: 'Ctrl+P',
+    commandPanel: 'Ctrl+P',
     copyNote: 'Ctrl+C',
     shareNote: 'Ctrl+S',
     deleteNote: 'Delete',
@@ -19,7 +19,6 @@ const handlers = new Map<KeymapCommand, Set<KeymapHandler>>()
 
 function matchesShortcut(event: KeyboardEvent, shortcut: string) {
     const [modifier, key] = shortcut.includes('+') ? shortcut.split('+') : [null, shortcut]
-
     const keyMatches =
         event.key.toLowerCase() === key.toLowerCase() ||
         event.code.toLowerCase() === `key${key.toLowerCase()}`
@@ -61,6 +60,9 @@ export function dispatchKeymapEvent(event: KeyboardEvent) {
 
     const isArrowCommand = command === 'moveNoteUp' || command === 'moveNoteDown'
     if (isArrowCommand && isEditableTarget(event.target)) return false
+
+    const isEnterCommand = command === 'openNote'
+    if (isEnterCommand && isEditableTarget(event.target)) return false
 
     let handled = false
     for (const handler of handlers.get(command) ?? []) {

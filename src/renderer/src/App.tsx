@@ -12,15 +12,25 @@ import useTheme from '@renderer/hooks/use-theme'
 import { useNoteStore } from '@renderer/store/note-store'
 import { dispatchKeymapEvent, registerKeymapHandler } from '@renderer/store/keymap-store'
 import { TooltipProvider } from './components/ui/tooltip'
+import { Kbd } from './components/ui/kbd'
 
-/** Page1 右侧只读预览：用 ProseMirror 渲染选中便签的内容与元信息 */
+/** Page1 右侧只读预览：用 ProseMirror 渲染选中笔记的内容与元信息 */
 function PreviewPane() {
     const selectedNote = useNoteStore((s) => s.selectedNote)
+    const notes = useNoteStore((s) => s.notes)
+
+    if (notes.length === 0) {
+        return (
+            <div className="bg-background h-full flex items-center justify-center text-sm text-muted-foreground select-none">
+                当前工作区没有笔记，<Kbd className="mr-1">Ctrl+N</Kbd> 新建
+            </div>
+        )
+    }
 
     if (!selectedNote) {
         return (
             <div className="bg-background h-full flex items-center justify-center text-sm text-muted-foreground select-none">
-                选择左侧便签查看预览
+                选择左侧笔记查看预览
             </div>
         )
     }
@@ -48,8 +58,7 @@ function PreviewPane() {
     )
 }
 
-/** Page2 编辑页：新建或编辑当前选中的便签 */
-/** Page2 编辑页：新建或编辑当前选中的便签 */
+/** Page2 编辑页：新建或编辑当前选中的笔记 */
 function NoteEditorPage() {
     const selectedNote = useNoteStore((s) => s.selectedNote)
     const draft = useNoteStore((s) => s.draft)
@@ -61,13 +70,13 @@ function NoteEditorPage() {
         <NoteEditor
             key={selectedNote?.id ?? 'new-note'}
             defaultValue={draft}
-            // 打开便签时 store 已按该便签保存的光标初始化；此处只读取一次作为初始焦点
+            // 打开笔记时 store 已按该笔记保存的光标初始化；此处只读取一次作为初始焦点
             initialCursor={useNoteStore.getState().cursor}
             onCursorChange={setCursor}
             className="h-full bg-background text-sm"
             showToolbar={toolbarVisible}
             readonly={false}
-            placeholder="输入内容，回车新建便签…"
+            placeholder=""
             onChange={(d) => setDraft(d)}
         />
     )
@@ -100,6 +109,7 @@ function AppShell() {
     const openSelectedNote = useNoteStore((s) => s.openSelectedNote)
     const closeEditor = useNoteStore((s) => s.closeEditor)
     const refetch = useNoteStore((s) => s.refetch)
+    const loadWorkspaces = useNoteStore((s) => s.loadWorkspaces)
     const inEditor = page === 'editor'
 
     // 编辑页双击 Esc：先记录首次按键时间，窗口内再次按下则返回列表
@@ -108,8 +118,9 @@ function AppShell() {
     const orderedIds = useMemo(() => notes.map((n) => n.id), [notes])
 
     useEffect(() => {
-        void refetch()
-    }, [refetch])
+        // 先加载工作区（含默认行），再拉取笔记列表（按激活工作区过滤）
+        void loadWorkspaces().then(() => refetch())
+    }, [loadWorkspaces, refetch])
 
     const moveSelection = useCallback(
         (dir: -1 | 1) => {
@@ -154,7 +165,14 @@ function AppShell() {
             unregisterDown()
             unregisterOpen()
         }
-    }, [moveSelection, selectedId, openSelectedNote, inEditor, actionMenuOpen])
+    }, [
+        moveSelection,
+        selectedId,
+        openSelectedNote,
+        inEditor,
+        actionMenuOpen,
+        registerKeymapHandler
+    ])
 
     // 编辑页双击 Esc 返回列表（closeEditor 会先落盘），中间间隔须足够短
     useEffect(() => {
@@ -174,7 +192,7 @@ function AppShell() {
             unregisterEscape()
             lastEscapeRef.current = 0
         }
-    }, [inEditor, closeEditor])
+    }, [inEditor, closeEditor, registerKeymapHandler])
 
     // 全局键盘：keymap 在捕获阶段分发，必须先于 ProseMirror / base-ui 等组件拿到按键——
     // - 编辑页里 ProseMirror 会对 Escape preventDefault，若等冒泡到 window 再分发，
