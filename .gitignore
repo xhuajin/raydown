@@ -2,7 +2,6 @@ node_modules
 dist
 out
 build
-resources
 temp
 .DS_Store
 .eslintcache
