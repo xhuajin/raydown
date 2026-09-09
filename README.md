@@ -1,4 +1,4 @@
-<img src="resources/icon.png" width="100px" alt="Raydown logo" align="left" />
+<img src="resources/icon-dark.png" width="100px" alt="Raydown logo" align="left" />
 
 ### Raydown
 
