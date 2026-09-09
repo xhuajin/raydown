@@ -2,9 +2,9 @@
 
 ### Raydown
 
-快捷键优先的速记应用
-
 [中文](./README.zh.md) · [English](./README.md)
+
+快捷键优先的速记应用
 
 ## ✨ 特性
 

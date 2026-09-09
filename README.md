@@ -2,9 +2,9 @@
 
 ### Raydown
 
-A Note-Taking App That Prioritizes Keyboard Shortcuts
-
 [中文](./README.zh.md) · [English](./README.md)
+
+A Note-Taking App That Prioritizes Keyboard Shortcuts
 
 ## ✨ Features
 
