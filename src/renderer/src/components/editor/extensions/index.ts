@@ -5,6 +5,7 @@ import { Placeholder } from '@tiptap/extension-placeholder'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { MathBlock, MathInline } from './math'
 import { SelectCodeBlock } from './select-code-block'
+import { CutLine } from './cut-line'
 import { ImageNode } from './image'
 import { ClipboardPaste } from './clipboard'
 
@@ -39,6 +40,8 @@ export function buildExtensions(placeholder?: string): Extensions {
         ImageNode,
         // Ctrl+A 在代码块内只选代码块内容而非全文
         SelectCodeBlock,
+        // Ctrl+X 无选区时剪切当前块（列表内为列表项），有选区时走默认剪切
+        CutLine,
         // 粘贴：图片落盘 + 富文本保留可映射格式 + markdown 源码转富文本
         ClipboardPaste
     ]
