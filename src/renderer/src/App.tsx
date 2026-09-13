@@ -37,7 +37,10 @@ function PreviewPane() {
     }
 
     return (
-        <div className="bg-background h-full flex flex-col min-h-0">
+        <div
+            className="bg-background h-full flex flex-col min-h-0"
+            onDoubleClick={() => useNoteStore.getState().openEditorFor(selectedNote.id)}
+        >
             <NoteEditor
                 key={selectedNote.id}
                 defaultValue={selectedNote.content}
