@@ -317,8 +317,7 @@ export const useNoteStore = create<NoteStore>((set, get) => {
                 page: 'list',
                 newNoteActive: false,
                 editingActive: false,
-                draftId: null,
-                selectedNote: get().notes[0] ?? null
+                draftId: null
             })
         },
 
