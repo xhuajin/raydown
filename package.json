@@ -44,6 +44,7 @@
         "lucide-react": "^1.40.0",
         "marked": "^18.0.12",
         "motion": "^13.2.0",
+        "motion-panels": "^0.5.1",
         "prosemirror-enter-rules": "^0.1.6",
         "prosemirror-inputrules": "^1.5.1",
         "prosemirror-math": "^0.2.2",

@@ -213,12 +213,3 @@ input {
 ::selection {
     @apply bg-muted;
 }
-
-/* 拖拽调宽期间关闭随宽度变化的过渡（sidebar-container / sidebar-gap /
-   SidebarMenuButton）。必须保持未分层——放进 @layer base 会被 Tailwind
-   utilities 层无条件覆盖而失效。侧栏新增含 width 过渡的组件时在此补选择器。 */
-[data-resizing='true'] [data-slot='sidebar-container'],
-[data-resizing='true'] [data-slot='sidebar-gap'],
-[data-resizing='true'] [data-slot='sidebar-menu-button'] {
-    transition: none;
-}

@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import dayjs from 'dayjs'
 
-import { SidebarProvider } from '@renderer/components/ui/sidebar'
+import { Panel, PanelGroup, PanelSeparator } from '@renderer/components/ui/motion-panels'
 import { MessageProvider, useMessage } from '@renderer/contexts/MessageContext'
 import { TopBar } from '@renderer/components/layout/top-bar'
 import { BottomBar } from '@renderer/components/layout/bottom-bar'
-import { SidebarContainer } from '@renderer/components/sidebar/sidebar'
+import { SidebarNoteList } from '@renderer/components/sidebar/sidebar'
 import NoteEditor from '@renderer/components/editor/note-editor'
 import useTheme from '@renderer/hooks/use-theme'
 
 import { useNoteStore } from '@renderer/store/note-store'
 import { dispatchKeymapEvent, registerKeymapHandler } from '@renderer/store/keymap-store'
+import { PANEL_MAX_WIDTH, PANEL_MIN_WIDTH, useLayoutStore } from '@renderer/store/layout-store'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Kbd } from './components/ui/kbd'
 
@@ -117,6 +118,50 @@ function SaveShortcut() {
     return null
 }
 
+/** 主区面板布局：列表页左侧为笔记列表面板（可拖宽、可折叠），右侧为填充面板；编辑页只有填充面板 */
+function AppPanels({ inEditor }: { inEditor: boolean }) {
+    const panelOpen = useLayoutStore((s) => s.panelOpen)
+    const setPanelOpen = useLayoutStore((s) => s.setPanelOpen)
+    const panelWidth = useLayoutStore((s) => s.panelWidth)
+    const setPanelWidth = useLayoutStore((s) => s.setPanelWidth)
+
+    // 折叠动画会把宽度压到 min 以下，这些中间值不作为面板宽度采用/持久化，
+    // 否则 store 的 clamp 会把宽度错误地钉在 min，展开后宽度丢失
+    const handleSizeChange = (next: number) => {
+        if (next < PANEL_MIN_WIDTH) return
+        setPanelWidth(next)
+    }
+
+    return (
+        <PanelGroup orientation="horizontal" className="flex-1 min-h-0 min-w-0">
+            {!inEditor && (
+                <>
+                    <Panel
+                        size={panelWidth}
+                        minSize={PANEL_MIN_WIDTH}
+                        maxSize={PANEL_MAX_WIDTH}
+                        collapsed={!panelOpen}
+                        onCollapsedChange={(collapsed) => setPanelOpen(!collapsed)}
+                        onSizeChange={handleSizeChange}
+                        // 官方文档 Collapsing 的 scale 预设：initial 0.85 → animate 1，
+                        // 不传 transition（用 Motion 默认），originX 锚定分隔条一侧
+                        initial={{ scale: 0.85 }}
+                        animate={{ scale: 1 }}
+                        style={{ originX: 1 }}
+                        className="flex flex-col overflow-hidden bg-sidebar text-sidebar-foreground font-interface [-webkit-app-region:drag]"
+                    >
+                        <SidebarNoteList />
+                    </Panel>
+                    <PanelSeparator className="[-webkit-app-region:no-drag]" />
+                </>
+            )}
+            {/* 不加 pin：pin 会把填充面板内容在折叠期固定并锚定，结束后瞬移；
+                不加 pin 时 flexbox 逐帧跟随左侧动画宽度，右侧平滑变宽/变窄 */}
+            <Panel className="min-w-0">{inEditor ? <NoteEditorPage /> : <PreviewPane />}</Panel>
+        </PanelGroup>
+    )
+}
+
 function AppShell() {
     useTheme()
 
@@ -213,6 +258,16 @@ function AppShell() {
         }
     }, [inEditor, closeEditor, registerKeymapHandler])
 
+    // 列表页 Ctrl+B 切换左侧面板显隐；编辑页放行给 ProseMirror 的加粗
+    useEffect(() => {
+        const unregister = registerKeymapHandler('togglePanel', () => {
+            if (inEditor) return false
+            useLayoutStore.getState().togglePanel()
+            return true
+        })
+        return unregister
+    }, [inEditor])
+
     // 全局键盘：keymap 在捕获阶段分发，必须先于 ProseMirror / base-ui 等组件拿到按键——
     // - 编辑页里 ProseMirror 会对 Escape preventDefault，若等冒泡到 window 再分发，
     //   按键已被 defaultPrevented 挡掉，双击 Esc 退出编辑页会失效；
@@ -230,20 +285,13 @@ function AppShell() {
     return (
         <TooltipProvider>
             <MessageProvider>
-                <SidebarProvider>
-                    <div className="flex h-screen w-full flex-col overflow-hidden">
-                        <TopBar />
-                        <div className="flex flex-1 min-h-0 min-w-0">
-                            {!inEditor && <SidebarContainer />}
-                            <div className="flex-1 min-w-0 min-h-0">
-                                {inEditor ? <NoteEditorPage /> : <PreviewPane />}
-                            </div>
-                        </div>
-                        <BottomBar />
-                        <SaveErrorToast />
-                        <SaveShortcut />
-                    </div>
-                </SidebarProvider>
+                <div className="flex h-screen w-full flex-col overflow-hidden">
+                    <TopBar />
+                    <AppPanels inEditor={inEditor} />
+                    <BottomBar />
+                    <SaveErrorToast />
+                    <SaveShortcut />
+                </div>
             </MessageProvider>
         </TooltipProvider>
     )

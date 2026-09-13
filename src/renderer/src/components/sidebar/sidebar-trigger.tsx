@@ -7,7 +7,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 
 import { cn } from '@renderer/lib/utils'
 import { Button } from '@renderer/components/ui/button'
-import { useSidebar } from '@renderer/components/ui/sidebar'
+import { useLayoutStore } from '@renderer/store/layout-store'
 
 export interface PanelLeftCloseIconHandle {
     startAnimation: () => void
@@ -33,7 +33,7 @@ const SidebarTrigger = forwardRef<PanelLeftCloseIconHandle, PanelLeftCloseIconPr
     ({ className, size = 28, strokeWidth = 2, ...props }, ref) => {
         const controls = useAnimation()
         const isControlledRef = useRef(false)
-        const { open, toggleSidebar } = useSidebar()
+        const { panelOpen, togglePanel } = useLayoutStore()
 
         useImperativeHandle(ref, () => {
             isControlledRef.current = true
@@ -44,15 +44,15 @@ const SidebarTrigger = forwardRef<PanelLeftCloseIconHandle, PanelLeftCloseIconPr
         })
 
         useEffect(() => {
-            if (open) {
+            if (panelOpen) {
                 controls.start('openAnimate')
             } else {
                 controls.start('closeAnimate')
             }
-        }, [controls, open])
+        }, [controls, panelOpen])
 
         return (
-            <Button size="icon-sm" variant="ghost" onClick={toggleSidebar}>
+            <Button size="icon-sm" variant="ghost" onClick={togglePanel}>
                 <div className={cn(className)} {...props}>
                     <svg
                         fill="none"
