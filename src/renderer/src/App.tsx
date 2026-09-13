@@ -98,6 +98,25 @@ function SaveErrorToast() {
     return null
 }
 
+/** 编辑页 Ctrl+S 手动保存：立即落盘当前草稿；失败时由 SaveErrorToast 提示，不重复报错 */
+function SaveShortcut() {
+    const { pushMessage } = useMessage()
+
+    useEffect(() => {
+        const unregister = registerKeymapHandler('saveNote', () => {
+            const { page, flushSave } = useNoteStore.getState()
+            if (page !== 'editor') return false
+            void flushSave().then(() => {
+                if (!useNoteStore.getState().saveError) pushMessage('已保存', 'success')
+            })
+            return true
+        })
+        return unregister
+    }, [pushMessage])
+
+    return null
+}
+
 function AppShell() {
     useTheme()
 
@@ -222,6 +241,7 @@ function AppShell() {
                         </div>
                         <BottomBar />
                         <SaveErrorToast />
+                        <SaveShortcut />
                     </div>
                 </SidebarProvider>
             </MessageProvider>

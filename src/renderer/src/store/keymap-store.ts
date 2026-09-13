@@ -5,6 +5,8 @@ export const KEYMAP = {
     toggleToolbar: 'Ctrl+T',
     commandPanel: 'Ctrl+P',
     copyNote: 'Ctrl+C',
+    // Ctrl+S 两个页面共用：编辑页手动保存（saveNote），列表页分享（shareNote）
+    saveNote: 'Ctrl+S',
     shareNote: 'Ctrl+S',
     deleteNote: 'Delete',
     escape: 'Escape',
@@ -51,22 +53,26 @@ export function registerKeymapHandler(command: KeymapCommand, handler: KeymapHan
  * 事件会被 preventDefault + stopPropagation，不再下发给编辑器 / 菜单等组件。
  * 必须挂在 window 的捕获阶段调用（见 App.tsx）：ProseMirror 会对 Escape 等
  * 按键 preventDefault、base-ui 菜单触发按钮会拦截方向键，冒泡阶段分发会漏掉它们。
+ *
+ * 多个命令可能共用同一快捷键（如编辑页 saveNote / 列表页 shareNote 都是 Ctrl+S）：
+ * 按 KEYMAP 顺序逐个尝试，某个命令的 handler 认领后停止；没认领则继续尝试下一个
+ * 命令，全部未认领时事件照常下发给组件。
  */
-export function dispatchKeymapEvent(event: KeyboardEvent) {
-    const command = (Object.keys(KEYMAP) as KeymapCommand[]).find((id) =>
-        matchesShortcut(event, KEYMAP[id])
-    )
-    if (!command) return false
-
-    const isArrowCommand = command === 'moveNoteUp' || command === 'moveNoteDown'
-    if (isArrowCommand && isEditableTarget(event.target)) return false
-
-    const isEnterCommand = command === 'openNote'
-    if (isEnterCommand && isEditableTarget(event.target)) return false
+export function dispatchKeymapEvent(event: KeyboardEvent): boolean {
+    const isArrowCommand = (id: KeymapCommand): boolean =>
+        id === 'moveNoteUp' || id === 'moveNoteDown'
+    const isEnterCommand = (id: KeymapCommand): boolean => id === 'openNote'
 
     let handled = false
-    for (const handler of handlers.get(command) ?? []) {
-        handled = handler(event) === true || handled
+    for (const id of Object.keys(KEYMAP) as KeymapCommand[]) {
+        if (!matchesShortcut(event, KEYMAP[id])) continue
+        if (isArrowCommand(id) && isEditableTarget(event.target)) continue
+        if (isEnterCommand(id) && isEditableTarget(event.target)) continue
+
+        for (const handler of handlers.get(id) ?? []) {
+            handled = handler(event) === true || handled
+        }
+        if (handled) break
     }
     if (handled) {
         event.preventDefault()

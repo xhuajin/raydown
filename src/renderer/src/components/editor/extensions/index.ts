@@ -6,6 +6,8 @@ import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { MathBlock, MathInline } from './math'
 import { SelectCodeBlock } from './select-code-block'
 import { CutLine } from './cut-line'
+import { ToggleTask } from './toggle-task'
+import { MoveLine } from './move-line'
 import { ImageNode } from './image'
 import { ClipboardPaste } from './clipboard'
 
@@ -42,6 +44,10 @@ export function buildExtensions(placeholder?: string): Extensions {
         SelectCodeBlock,
         // Ctrl+X 无选区时剪切当前块（列表内为列表项），有选区时走默认剪切
         CutLine,
+        // Ctrl+L 三段循环：非任务 → 未完成 → 已完成 → 未完成
+        ToggleTask,
+        // Alt+↑/↓ 上下移动当前行（代码块内为文本行，列表内为列表项，其余为顶层块）
+        MoveLine,
         // 粘贴：图片落盘 + 富文本保留可映射格式 + markdown 源码转富文本
         ClipboardPaste
     ]

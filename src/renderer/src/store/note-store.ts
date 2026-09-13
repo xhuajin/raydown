@@ -198,7 +198,14 @@ export const useNoteStore = create<NoteStore>((set, get) => {
 
         setCursor: (cursor) => set({ cursor }),
 
-        flushSave: () => flushSaveLogged(),
+        flushSave: () => {
+            // 手动保存后取消待触发的防抖，避免 600ms 后对同样内容重复落库
+            if (saveTimer) {
+                clearTimeout(saveTimer)
+                saveTimer = null
+            }
+            return flushSaveLogged()
+        },
 
         clearSaveError: () => set({ saveError: null }),
 
