@@ -110,7 +110,8 @@ export function BottomBar() {
         if (inEditor) return
 
         const copyNote = () => {
-            if (!selectedNote) return false
+            // 仅 action panel 打开时作为 Copy 菜单加速键生效；面板关闭时放行浏览器原生复制（预览区选中文字）
+            if (!actionMenuOpen || !selectedNote) return false
             void navigator.clipboard.writeText(textOf(selectedNote.content))
             pushMessage('已复制笔记内容', 'success')
             return true
@@ -144,7 +145,15 @@ export function BottomBar() {
             unrefShare()
             unrefDelete()
         }
-    }, [inEditor, selectedNote, selectedId, remove, pushMessage, registerKeymapHandler])
+    }, [
+        inEditor,
+        selectedNote,
+        selectedId,
+        actionMenuOpen,
+        remove,
+        pushMessage,
+        registerKeymapHandler
+    ])
 
     // —— 列表页内删除 / 编辑：把菜单项动作走通 ——
     const handleEdit = () => openSelectedNote()

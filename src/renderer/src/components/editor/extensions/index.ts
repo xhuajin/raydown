@@ -4,6 +4,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { Placeholder } from '@tiptap/extension-placeholder'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { MathBlock, MathInline } from './math'
+import { MergedCodeBlock } from './code-block'
 import { SelectCodeBlock } from './select-code-block'
 import { CutLine } from './cut-line'
 import { ToggleTask } from './toggle-task'
@@ -26,7 +27,9 @@ export function buildExtensions(placeholder?: string): Extensions {
             link: {
                 openOnClick: false,
                 HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' }
-            }
+            },
+            // 官方 toggleCodeBlock 对多行选区逐块转换，替换为 ./code-block 的合并版
+            codeBlock: false
         }),
         // 任务列表（nested 允许 Tab 缩进多级子任务）
         TaskList,
@@ -40,6 +43,8 @@ export function buildExtensions(placeholder?: string): Extensions {
         MathBlock,
         // 块级图片节点：截图/图片粘贴经 clipboard 落盘后插入
         ImageNode,
+        // 代码块：多行选区合并为单个代码块、关闭时按行拆回段落（替换 StarterKit 内置版）
+        MergedCodeBlock,
         // Ctrl+A 在代码块内只选代码块内容而非全文
         SelectCodeBlock,
         // Ctrl+X 无选区时剪切当前块（列表内为列表项），有选区时走默认剪切
