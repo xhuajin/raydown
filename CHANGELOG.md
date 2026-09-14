@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.2.0] - 2026-09-14
+
+### Feature
+
+- ctrl x 快捷键
+- ctrl l
+- alt + 上下
+- ctrl s 强制保存
+- motion panels
+- 预览区域双击进入编辑
+- Editor 左右两侧增加 padding
+- 增加 sidebar 开关动画
+
+### Bug Fix
+
+- 粘贴markdown没解析
+- 选多行文本转化为 code-blcok 有问题
+- 关闭编辑器时，预览的note默认变成了第一个note
+
 ## [1.1.0] - 2026-09-09
 
 ### Feature
