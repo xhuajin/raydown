@@ -102,7 +102,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(function No
         defaultValue,
         readonly = false,
         placeholder,
-        showToolbar = true,
+        showToolbar = false,
         onChange,
         initialCursor,
         onCursorChange,

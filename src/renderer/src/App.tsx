@@ -14,6 +14,7 @@ import { dispatchKeymapEvent, registerKeymapHandler } from '@renderer/store/keym
 import { PANEL_MAX_WIDTH, PANEL_MIN_WIDTH, useLayoutStore } from '@renderer/store/layout-store'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Kbd } from './components/ui/kbd'
+import { cn } from './lib/utils'
 
 /** Page1 右侧只读预览：用 ProseMirror 渲染选中笔记的内容与元信息 */
 function PreviewPane() {
@@ -137,27 +138,29 @@ function AppPanels({ inEditor }: { inEditor: boolean }) {
 
     return (
         <PanelGroup orientation="horizontal" className="flex-1 min-h-0 min-w-0">
-            {!inEditor && (
+            {
                 <>
                     <Panel
                         size={panelWidth}
                         minSize={PANEL_MIN_WIDTH}
                         maxSize={PANEL_MAX_WIDTH}
-                        collapsed={!panelOpen}
+                        collapsed={!panelOpen || inEditor}
                         onCollapsedChange={(collapsed) => setPanelOpen(!collapsed)}
                         onSizeChange={handleSizeChange}
-                        // 官方文档 Collapsing 的 scale 预设：initial 0.85 → animate 1，
-                        // 不传 transition（用 Motion 默认），originX 锚定分隔条一侧
                         initial={{ scale: 0.85 }}
                         animate={{ scale: 1 }}
+                        exit={{ scale: 0.85 }}
                         style={{ originX: 1 }}
-                        className="flex flex-col overflow-hidden bg-sidebar text-sidebar-foreground font-interface [-webkit-app-region:drag]"
+                        className={cn(
+                            'flex flex-col overflow-hidden bg-sidebar text-sidebar-foreground font-interface',
+                            panelOpen && !inEditor && '[-webkit-app-region:drag]'
+                        )}
                     >
                         <SidebarNoteList />
                     </Panel>
                     <PanelSeparator className="[-webkit-app-region:no-drag]" />
                 </>
-            )}
+            }
             {/* 不加 pin：pin 会把填充面板内容在折叠期固定并锚定，结束后瞬移；
                 不加 pin 时 flexbox 逐帧跟随左侧动画宽度，右侧平滑变宽/变窄 */}
             <Panel className="min-w-0">{inEditor ? <NoteEditorPage /> : <PreviewPane />}</Panel>
