@@ -229,6 +229,13 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(function No
                     >
                         H3
                     </ToolbarButton>
+                    <ToolbarButton
+                        title="标题 4"
+                        active={editor.isActive('heading', { level: 4 })}
+                        onClick={() => run((ed) => ed.chain().toggleHeading({ level: 4 }).run())}
+                    >
+                        H4
+                    </ToolbarButton>
                     <Separator orientation="vertical" className="w-[1.5px]! mx-1 h-4 my-auto" />
 
                     <ToolbarButton
@@ -305,12 +312,13 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(function No
                     </ToolbarButton>
                 </div>
             ) : null}
-
-            <EditorContent
-                editor={editor}
-                spellCheck={false}
-                className="flex-1 min-h-0 overflow-y-auto px-4 py-3 text-sm leading-relaxed outline-none"
-            />
+            <div className="flex-1 min-h-0 min-w-0 overflow-y-auto">
+                <EditorContent
+                    editor={editor}
+                    spellCheck={false}
+                    className="flex-1 min-h-0 px-8 py-3 max-w-180 mx-auto text-sm leading-relaxed outline-none"
+                />
+            </div>
         </div>
     )
 })
