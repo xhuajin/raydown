@@ -5,6 +5,7 @@ import { Placeholder } from '@tiptap/extension-placeholder'
 import { TaskItem, TaskList } from '@tiptap/extension-list'
 import { MathBlock, MathInline } from './math'
 import { MergedCodeBlock } from './code-block'
+import { HighlightEqualSignWrap, HighlightMark } from './highlight'
 import { SelectCodeBlock } from './select-code-block'
 import { CutLine } from './cut-line'
 import { ToggleTask } from './toggle-task'
@@ -16,7 +17,7 @@ import { ClipboardPaste } from './clipboard'
  * 编辑器扩展的单一来源。应用与 schema（见 getEditorSchema）共用同一份扩展数组，
  * 保证「解析用 schema」与「编辑器实际 schema」完全一致。
  *
- * 覆盖范围（用户决策）：基础排版（H1-H3、粗/斜/删除线/行内代码、无序/有序/任务列表、
+ * 覆盖范围（用户决策）：基础排版（H1-H3、粗/斜/删除线/行内代码/高亮、无序/有序/任务列表、
  * 引用、代码块、链接、undo/redo）全部由 Tiptap 官方扩展实现；数学公式由
  * prosemirror-math 包一层（extensions/math.ts）。
  */
@@ -31,6 +32,8 @@ export function buildExtensions(placeholder?: string): Extensions {
             // 官方 toggleCodeBlock 对多行选区逐块转换，替换为 ./code-block 的合并版
             codeBlock: false
         }),
+        // 高亮 mark（==xx==）：官方扩展含输入/粘贴规则与 markdown 解析，此处加 Ctrl+H 快捷键
+        HighlightMark,
         // 任务列表（nested 允许 Tab 缩进多级子任务）
         TaskList,
         TaskItem.configure({ nested: true }),
@@ -53,6 +56,8 @@ export function buildExtensions(placeholder?: string): Extensions {
         ToggleTask,
         // Alt+↑/↓ 上下移动当前行（代码块内为文本行，列表内为列表项，其余为顶层块）
         MoveLine,
+        // 选中文本后按两次 = 转为高亮（第一次两侧包 =，第二次转换）
+        HighlightEqualSignWrap,
         // 粘贴：图片落盘 + 富文本保留可映射格式 + markdown 源码转富文本
         ClipboardPaste
     ]

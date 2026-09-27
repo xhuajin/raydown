@@ -1,7 +1,7 @@
 import { Extension } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
-import { marked } from 'marked'
+import { marked, type TokenizerAndRendererExtension } from 'marked'
 
 /**
  * 剪贴板粘贴统一处理。按优先级接管：
@@ -78,6 +78,7 @@ function looksLikeMarkdown(text: string): boolean {
     return (
         /#{1,6}\s/.test(text) || // 标题
         /[*_]{2}[^*_]+[*_]{2}/.test(text) || // **加粗**
+        /==[^=\n]+==/.test(text) || // ==高亮==
         /\[[^\]]+\]\([^)]+\)/.test(text) || // [text](url)
         /\$\S+?\$/.test(text) || // $…$ 行内公式
         /```/.test(text) || // 代码块围栏
@@ -85,6 +86,37 @@ function looksLikeMarkdown(text: string): boolean {
         /^\s*\|.+\|\s*$/.test(text) // 表格行
     )
 }
+
+/**
+ * marked 原生不认识 ==高亮== 语法，注册自定义 inline 扩展输出 <mark>，
+ * 交给 Highlight 扩展的 parseHTML（tag: mark）按 schema 解析成高亮 mark。
+ * tokenizer 规则与 tiptap 官方 Highlight 的 markdownTokenizer 保持一致。
+ * marked.use 按名字覆盖同名扩展，模块被 HMR 重复求值也不会叠加。
+ */
+const highlightTokenizer: TokenizerAndRendererExtension = {
+    name: 'highlight',
+    level: 'inline',
+    start(src) {
+        return src.indexOf('==')
+    },
+    tokenizer(src) {
+        const match = /^(==)([^=\n]+?)(==)/.exec(src)
+        if (!match) return undefined
+        const inner = match[2].trim()
+        if (!inner) return undefined
+        return {
+            type: 'highlight',
+            raw: match[0],
+            text: inner,
+            tokens: this.lexer.inlineTokens(inner)
+        }
+    },
+    renderer(token) {
+        return `<mark>${this.parser.parseInline(token.tokens ?? [])}</mark>`
+    }
+}
+
+marked.use({ extensions: [highlightTokenizer] })
 
 /**
  * text/html 是否是「真富文本」（含语义标签：网页/Word/编辑器自身复制）。

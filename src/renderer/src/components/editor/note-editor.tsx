@@ -13,6 +13,7 @@ import {
     Italic,
     Strikethrough,
     Code,
+    Highlighter,
     List,
     ListOrdered,
     ListTodo,
@@ -265,6 +266,13 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(function No
                         onClick={() => run((ed) => ed.chain().toggleCode().run())}
                     >
                         <Code size={15} />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        title="高亮"
+                        active={editor.isActive('highlight')}
+                        onClick={() => run((ed) => ed.chain().toggleHighlight().run())}
+                    >
+                        <Highlighter size={15} />
                     </ToolbarButton>
                     <Separator orientation="vertical" className="w-[1.5px]! mx-1 h-4 my-auto" />
 

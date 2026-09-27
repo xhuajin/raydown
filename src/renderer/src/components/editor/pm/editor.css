@@ -167,6 +167,20 @@
     background: color-mix(in oklab, var(--foreground) 12%, transparent);
 }
 
+/* ==高亮== mark：亮色实底淡黄、暗色半透明黄，文字随主题（覆盖 UA 的黑字默认） */
+.ProseMirror mark {
+    background-color: #fef08a;
+    color: inherit;
+    border-radius: 2px;
+    padding: 0.05em 0.15em;
+}
+.dark .ProseMirror mark {
+    background-color: color-mix(in oklab, #fef08a 30%, transparent);
+}
+.ProseMirror mark::selection {
+    background: color-mix(in oklab, var(--foreground) 12%, transparent);
+}
+
 .ProseMirror a {
     color: var(--color-primary);
     text-decoration: underline;
