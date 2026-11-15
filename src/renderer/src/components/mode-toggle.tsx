@@ -7,8 +7,7 @@ export function ModeToggle() {
     const setThemeMode = useSettingsStore((s) => s.setThemeMode)
 
     const handleToggleTheme = () => {
-        const next: ThemeMode =
-            themeMode === 'dark' ? 'light' : themeMode === 'light' ? 'system' : 'dark'
+        const next: ThemeMode = themeMode === 'dark' ? 'light' : 'dark'
         setThemeMode(next)
     }
 
