@@ -1,4 +1,15 @@
-import { app, shell, BrowserWindow, ipcMain, clipboard, Tray, Menu, nativeImage, protocol, net } from 'electron'
+import {
+    app,
+    shell,
+    BrowserWindow,
+    ipcMain,
+    clipboard,
+    Tray,
+    Menu,
+    nativeImage,
+    protocol,
+    net
+} from 'electron'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
 import { randomUUID } from 'crypto'
@@ -113,10 +124,10 @@ function createTray(): void {
 function createWindow(): void {
     // Create the browser window.
     mainWindow = new BrowserWindow({
-        width: 728,
-        height: 450,
-        minWidth: 728,
-        minHeight: 450,
+        width: 1024,
+        height: 612,
+        minWidth: 512,
+        minHeight: 316,
         show: false,
         frame: false, // 已经隐藏了标题栏
         transparent: false,
@@ -254,16 +265,13 @@ app.whenReady().then(() => {
     ipcMain.handle('clipboard:read-html', () => clipboard.readHTML())
 
     // 🎯 粘贴图片落盘：写 userData/images/<uuid>.<ext>，返回 ray-image:// 协议 URL
-    ipcMain.handle(
-        'images:save',
-        (_event, data: Uint8Array, ext: string): string => {
-            const safeExt = /^[a-z0-9]{1,8}$/i.test(ext) ? ext.toLowerCase() : 'png'
-            const name = `${randomUUID()}.${safeExt}`
-            mkdirSync(imagesDir, { recursive: true })
-            writeFileSync(join(imagesDir, name), Buffer.from(data))
-            return `ray-image://${name}`
-        }
-    )
+    ipcMain.handle('images:save', (_event, data: Uint8Array, ext: string): string => {
+        const safeExt = /^[a-z0-9]{1,8}$/i.test(ext) ? ext.toLowerCase() : 'png'
+        const name = `${randomUUID()}.${safeExt}`
+        mkdirSync(imagesDir, { recursive: true })
+        writeFileSync(join(imagesDir, name), Buffer.from(data))
+        return `ray-image://${name}`
+    })
 
     // 🎯 图片自定义协议（dev http / 打包 file 都能加载粘贴的图片）
     registerImageProtocol()
