@@ -324,7 +324,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(function No
                 <EditorContent
                     editor={editor}
                     spellCheck={false}
-                    className="flex-1 min-h-0 px-8 py-3 max-w-180 mx-auto text-sm leading-relaxed outline-none"
+                    className="flex-1 min-h-0 h-full px-8 py-3 max-w-180 mx-auto text-sm leading-relaxed outline-none"
                 />
             </div>
         </div>
