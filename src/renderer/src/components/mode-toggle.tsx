@@ -8,6 +8,7 @@ export function ModeToggle() {
 
     const handleToggleTheme = () => {
         const next: ThemeMode = themeMode === 'dark' ? 'light' : 'dark'
+        console.log('切换主题模式', next)
         setThemeMode(next)
     }
 
