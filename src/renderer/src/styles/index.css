@@ -213,3 +213,7 @@ input {
 ::selection {
     @apply bg-muted;
 }
+
+.tiptap.ProseMirror {
+    @apply pb-48;
+}

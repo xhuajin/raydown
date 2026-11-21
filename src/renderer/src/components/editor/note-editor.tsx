@@ -320,7 +320,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(function No
                     </ToolbarButton>
                 </div>
             ) : null}
-            <div className="flex-1 min-h-0 min-w-0 overflow-y-scroll">
+            <div className="flex-1 h-full min-h-0 min-w-0 overflow-y-scroll">
                 <EditorContent
                     editor={editor}
                     spellCheck={false}
