@@ -2,7 +2,6 @@ import { useCallback } from 'react'
 import { FileText } from 'lucide-react'
 
 import { useNoteStore } from '@renderer/store/note-store'
-import { firstLineOfDoc } from '@renderer/components/editor/pm/doc'
 import { groupNotes } from '@renderer/api/notes'
 
 /** 工作区分组标签：原 shadcn SidebarGroupLabel 的样式复刻 */
@@ -73,7 +72,7 @@ export function SidebarNoteList() {
                                     >
                                         <FileText className="size-3.5!" />
                                         <span className="truncate select-none">
-                                            {firstLineOfDoc(note.content)}
+                                            {note.title || 'Untitled'}
                                         </span>
                                     </button>
                                 </li>

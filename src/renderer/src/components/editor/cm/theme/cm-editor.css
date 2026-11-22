@@ -1,0 +1,348 @@
+/*
+ * CodeMirror 编辑器的行装饰/widget 样式。
+ * 只消费 Raydown 的 CSS 变量，dark/light 由 html.dark 上的变量自动生效。
+ * 各插件的高亮 class（cm-h1、cm-strong…）由插件启用时才注入装饰，样式集中在此便于统一调整。
+ */
+
+/* ---------------- 独立标题（编辑态输入框 / 预览态展示） ----------------
+   居中、稍微加粗放大；空标题由逻辑层兜底为 Untitled */
+.cm-note-title {
+    width: 100%;
+    padding: 1.25rem 2rem 0.25rem;
+    text-align: center;
+    font-family: var(--font-sans);
+    font-size: 1.15em;
+    font-weight: 600;
+    color: var(--color-foreground);
+    background: transparent;
+    border: none;
+    outline: none;
+}
+.cm-note-title::placeholder {
+    color: var(--color-muted-foreground);
+    font-weight: 400;
+}
+
+/* ---------------- 标题 ---------------- */
+.cm-h1 {
+    font-size: 1.5em;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-top: 0.5em;
+}
+.cm-h2 {
+    font-size: 1.3em;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-top: 0.5em;
+}
+.cm-h3 {
+    font-size: 1.15em;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-top: 0.4em;
+}
+.cm-h4 {
+    font-size: 1.05em;
+    font-weight: 600;
+}
+.cm-h5 {
+    font-size: 1em;
+    font-weight: 600;
+}
+.cm-h6 {
+    font-size: 0.95em;
+    font-weight: 600;
+    color: var(--color-muted);
+}
+
+/* ---------------- 行内样式 ---------------- */
+.cm-strong {
+    font-weight: 700;
+}
+.cm-em {
+    font-style: italic;
+}
+.cm-strike {
+    text-decoration: line-through;
+}
+.cm-highlight {
+    background-color: color-mix(in oklch, var(--color-primary) 28%, transparent);
+    border-radius: 3px;
+    padding: 0 1px;
+}
+.cm-inline-code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    /* 透明 */
+    background-color: color-mix(in oklch, var(--color-muted) 70%, transparent);
+    border-radius: 4px;
+    padding: 0.125rem 0.375rem;
+}
+.cm-code-info {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+}
+
+/* ---------------- 链接 / 图片 ---------------- */
+.cm-link {
+    color: var(--color-primary);
+    text-decoration: none;
+    cursor: pointer;
+}
+.cm-link:hover {
+    text-decoration: underline;
+}
+.cm-url {
+    color: var(--color-link);
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    text-decoration: underline;
+    cursor: pointer;
+}
+.cm-image {
+    max-width: 100%;
+    max-height: 20rem;
+    border-radius: 6px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* ---------------- 引用 ---------------- */
+.cm-quote-line {
+    color: var(--color-muted-foreground);
+}
+div.cm-line.cm-quote-line:first-child {
+    margin-top: 0.5rem;
+}
+/* 左侧竖线：行装饰逐行绘制，多行引用连成一条 */
+div.cm-line.cm-quote-line {
+    border-left: 2px solid var(--color-border);
+}
+div.cm-line.cm-quote-line > span.cm-quote-line {
+    padding-left: 0.828rem;
+}
+div.cm-line.cm-quote-line > span.cm-quote-line.cm-syntax-mark + span.cm-quote-line,
+div.cm-line.cm-quote-line > span.cm-quote-line.cm-syntax-mark {
+    padding-left: 0rem;
+}
+
+.cm-quote-line.cm-quote-plain {
+    font-style: italic;
+}
+
+/* ---------------- 列表 ---------------- */
+/* 结构（同 Obsidian）：[cm-indent 缩进占位][cm-marker-box marker 盒子][文本]。
+   缩进与 marker 盒子的宽度均由 JS 按源码前缀实测内联设置（core/metrics.ts），
+   marker 显隐两态同宽，光标移入移出时文本零位移。
+   注意：text-indent 是可继承属性，行上的负首行缩进会继承进盒子里，
+   把 bullet 字形拉出盒子（宽度被吃成 0、圆点贴到行首），必须在盒子上重置 */
+.cm-indent {
+    display: inline-block;
+    text-indent: 0;
+    /* 行高 normal：占位元素的行盒与正文字体内容框一致，
+       否则 CM 量到的光标矩形会比正文光标高（视觉上忽高忽矮） */
+    line-height: normal;
+}
+/* 缩进/隐藏 dash 的占位文本：visibility:hidden 保留行盒，
+   撑起占位元素的高度与基线 */
+.cm-indent-fill {
+    visibility: hidden;
+    white-space: pre;
+}
+.cm-dash-fill {
+    visibility: hidden;
+}
+/* 显示态：源码 `- ` 套同宽盒子。必须用 inline-block——光标会进入其中，
+   Chromium 在 contenteditable 的 flex 容器内不渲染光标插入符。
+   white-space: nowrap 防止 marker 后的空格在固定宽度盒内折行
+   （折行会让盒子变成两行高、基线下移，后续文本掉到第二行） */
+.cm-marker-box {
+    display: inline-block;
+    text-indent: 0;
+    white-space: nowrap;
+    /* 行高 normal：同 cm-indent，光标进入盒子内部时高度与正文一致 */
+    line-height: normal;
+}
+/* widget 态：内部无光标（contenteditable=false），可安全用 flex 垂直居中 checkbox */
+.cm-marker-box-widget {
+    display: inline-flex;
+    align-items: center;
+}
+.cm-bullet {
+    color: var(--color-primary);
+    font-weight: 600;
+}
+.cm-list-mark {
+    color: var(--color-primary);
+    font-weight: 600;
+}
+.cm-task-done {
+    text-decoration: line-through;
+    /* 弱化但可读：muted 背景色太浅，用弱化前景色 */
+    color: var(--color-muted-foreground);
+}
+.cm-task-checkbox {
+    width: 0.9em;
+    height: 0.9em;
+    accent-color: var(--color-primary);
+    cursor: pointer;
+}
+
+/* ---------------- 选区（浏览器原生绘制，按字形精确高亮） ---------------- */
+/* 不启用 drawSelection：原生选区绘制在文本层之上，代码块背景不会遮挡选区，
+   多行选区也只高亮实际被选中的字形 */
+.cm-editor ::selection {
+    background: color-mix(in oklch, var(--color-primary) 25%, transparent);
+}
+
+/* ---------------- 代码块 ---------------- */
+.cm-line.cm-code-line {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background-color: var(--color-muted);
+    padding-left: 1.25rem;
+    padding-right: 0.75rem;
+    /* 块内不折行：过长时行宽超出编辑器，触发横向滚动（cm-scroller overflow-x） */
+    white-space: pre;
+    width: max-content;
+    min-width: 100%;
+    box-sizing: border-box;
+}
+/* 光标不在围栏行时：行与背景保留，内容（``` 与语言标注）visibility 隐藏。
+   用 visibility 而非 color/opacity：visibility 对子元素强制生效，
+   不会被语法高亮的颜色类反超 */
+.cm-fence-hidden {
+    position: relative;
+}
+.cm-fence-content-hidden {
+    visibility: hidden;
+}
+/* 隐藏态围栏行的语言标注/复制按钮（行右上角，距上、右等距）：
+   默认显示语言名，hover 反色背景（带过渡）并切换为 Copy 文案，点击复制整个代码块 */
+.cm-lang-label {
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.8em;
+    color: var(--color-muted-foreground);
+    cursor: pointer;
+    user-select: none;
+    border-radius: 4px;
+    padding: 1px 6px;
+    transition:
+        background-color 0.15s ease,
+        color 0.15s ease;
+}
+.cm-lang-label .cm-copy-text {
+    display: none;
+}
+.cm-lang-label:hover {
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
+}
+.cm-lang-label:hover .cm-lang-name {
+    display: none;
+}
+.cm-lang-label:hover .cm-copy-text {
+    display: inline;
+}
+.cm-code-first {
+    border-radius: 8px 8px 0 0;
+    padding-top: 0.25rem;
+    margin-top: 0.25rem;
+}
+.cm-code-last {
+    border-radius: 0 0 8px 8px;
+    padding-bottom: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+/* 代码 token（由代码块插件的 HighlightStyle 挂 class，颜色沿用编辑器 ANSI 系配色） */
+.cm-tok-keyword {
+    color: var(--color-primary);
+}
+.cm-tok-string {
+    color: oklch(0.7 0.12 145);
+}
+.cm-tok-comment {
+    color: var(--color-muted);
+    font-style: italic;
+}
+.cm-tok-number {
+    color: oklch(0.72 0.15 60);
+}
+.cm-tok-def {
+    color: var(--color-foreground);
+    font-weight: 600;
+}
+.cm-tok-variableName {
+    color: var(--color-foreground);
+}
+.cm-tok-typeName {
+    color: oklch(0.72 0.12 260);
+}
+.cm-tok-atom {
+    color: oklch(0.72 0.15 60);
+}
+.cm-tok-meta {
+    color: var(--color-muted);
+}
+.cm-tok-heading {
+    font-weight: 600;
+}
+.cm-tok-link {
+    color: var(--color-link);
+}
+
+.dark .cm-tok-string {
+    color: oklch(0.8 0.12 145);
+}
+.dark .cm-tok-number {
+    color: oklch(0.82 0.15 60);
+}
+.dark .cm-tok-typeName {
+    color: oklch(0.8 0.12 260);
+}
+.dark .cm-tok-atom {
+    color: oklch(0.82 0.15 60);
+}
+
+/* ---------------- 分割线 ---------------- */
+.cm-hr-widget {
+    display: block;
+    line-height: 0;
+}
+.cm-hr-widget hr {
+    border: none;
+    border-top: 2px solid var(--color-border);
+    margin: 0.75rem 0;
+    width: 100%;
+}
+
+/* ---------------- 数学公式 ---------------- */
+.cm-math-inline {
+    display: inline-block;
+    vertical-align: middle;
+}
+.cm-math-block {
+    display: block;
+    text-align: center;
+    margin: 0.5rem 0;
+}
+.cm-math-inline.katex,
+.cm-math-block .katex {
+    font-size: 1.05em;
+}
+.cm-math-error {
+    color: var(--color-destructive);
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+}
+.cm-math-src {
+    font-family: var(--font-mono);
+    color: var(--color-primary);
+    background-color: var(--color-muted);
+    border-radius: 3px;
+}

@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { Settings } from 'lucide-react'
 import { Kbd, KbdGroup } from '@renderer/components/ui/kbd'
 import { Separator } from '@renderer/components/ui/separator'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
 import { useMessage } from '@renderer/contexts/MessageContext'
 import { MessageIndicator } from './message-indicator'
+import { SettingsDialog } from '@renderer/components/settings/settings-dialog'
 import { useNoteStore } from '@renderer/store/note-store'
-import { textOf } from '@renderer/components/editor/pm/doc'
+import { plainTextOfMarkdown } from '@renderer/lib/markdown-doc'
 import { cn } from '@renderer/lib/utils'
 import { KEYMAP, registerKeymapHandler } from '@renderer/store/keymap-store'
 import { DEFAULT_WORKSPACE_ID } from '@renderer/api/workspaces'
@@ -60,11 +63,12 @@ export function BottomBar() {
     const remove = useNoteStore((s) => s.remove)
     const actionMenuOpen = useNoteStore((s) => s.actionMenuOpen)
     const setActionMenuOpen = useNoteStore((s) => s.setActionMenuOpen)
-    const toggleToolbar = useNoteStore((s) => s.toggleToolbar)
     const workspaces = useNoteStore((s) => s.workspaces)
     const moveSelectedToWorkspace = useNoteStore((s) => s.moveSelectedToWorkspace)
     // 删除二次确认：第一次激活 Delete 项时武装，第二次（Enter 或点击）才真正删除
     const [deleteArmed, setDeleteArmed] = useState(false)
+    // 设置对话框（编辑器插件开关）
+    const [settingsOpen, setSettingsOpen] = useState(false)
 
     /** 当前选中便签归属的工作区 id（空/NULL 归默认） */
     const noteWorkspaceId = selectedNote?.workspace_id ?? DEFAULT_WORKSPACE_ID
@@ -85,16 +89,6 @@ export function BottomBar() {
 
     const inEditor = page === 'editor'
 
-    // —— 编辑页操作：Ctrl+T 切换编辑器工具栏 ——
-    useEffect(() => {
-        const unregister = registerKeymapHandler('toggleToolbar', () => {
-            if (!inEditor) return false
-            toggleToolbar()
-            return true
-        })
-        return unregister
-    }, [inEditor, toggleToolbar, registerKeymapHandler])
-
     // —— 列表页操作：Ctrl+K 打开 / 关闭右侧 ActionPanel ——
     useEffect(() => {
         const unregister = registerKeymapHandler('actionsMenu', () => {
@@ -112,7 +106,7 @@ export function BottomBar() {
         const copyNote = () => {
             // 仅 action panel 打开时作为 Copy 菜单加速键生效；面板关闭时放行浏览器原生复制（预览区选中文字）
             if (!actionMenuOpen || !selectedNote) return false
-            void navigator.clipboard.writeText(textOf(selectedNote.content))
+            void navigator.clipboard.writeText(plainTextOfMarkdown(selectedNote.content))
             pushMessage('已复制笔记内容', 'success')
             return true
         }
@@ -127,7 +121,7 @@ export function BottomBar() {
             const note = selectedNote
             if (
                 !window.confirm(
-                    `确定删除笔记「${note ? textOf(note.content).slice(0, 20) : '未命名'}」？`
+                    `确定删除笔记「${note ? plainTextOfMarkdown(note.content).slice(0, 20) : '未命名'}」？`
                 )
             ) {
                 return true
@@ -159,7 +153,7 @@ export function BottomBar() {
     const handleEdit = () => openSelectedNote()
     const handleCopy = () => {
         if (!selectedNote) return
-        void navigator.clipboard.writeText(textOf(selectedNote.content))
+        void navigator.clipboard.writeText(plainTextOfMarkdown(selectedNote.content))
         pushMessage('已复制笔记内容', 'success')
     }
     const handleDelete = () => {
@@ -186,8 +180,29 @@ export function BottomBar() {
                 'bg-background relative flex min-w-0 w-full h-10 min-h-10 max-h-10 justify-between items-center pr-2 border-t border-border text-xs [-webkit-app-region:drag]'
             )}
         >
-            <div className="relative h-full w-full flex items-center min-w-0 z-10">
-                {activeMessage ? <MessageIndicator /> : <ModeToggle />}
+            <div className="relative h-full w-full flex items-center min-w-0 z-10 gap-1 pl-2">
+                {activeMessage ? (
+                    <MessageIndicator />
+                ) : (
+                    <>
+                        <ModeToggle />
+                        <Tooltip>
+                            <TooltipTrigger
+                                render={
+                                    <button
+                                        className="size-7 rounded-lg flex items-center justify-center transition-colors hover:bg-muted text-muted-foreground"
+                                        onClick={() => setSettingsOpen(true)}
+                                    >
+                                        <Settings size={15} strokeWidth={1.7} />
+                                    </button>
+                                }
+                            />
+                            <TooltipContent side="top">
+                                <p>设置</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    </>
+                )}
             </div>
 
             {!inEditor && (
@@ -314,20 +329,7 @@ export function BottomBar() {
                     </DropdownMenu>
                 </div>
             )}
-            {inEditor && (
-                <div className="flex min-w-fit items-center select-none">
-                    <button
-                        className="flex items-center justify-center h-7 px-2 rounded-lg transition-all duration-300 hover:bg-muted gap-2 leading-3"
-                        onClick={toggleToolbar}
-                    >
-                        Toolbar
-                        <KbdGroup>
-                            {kbdModifier('Ctrl')}
-                            {kbdKey(KEYMAP.toggleToolbar.replace('Ctrl+', ''))}
-                        </KbdGroup>
-                    </button>
-                </div>
-            )}
+            <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         </div>
     )
 }

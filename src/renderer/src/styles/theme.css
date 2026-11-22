@@ -30,6 +30,7 @@ html[data-theme-family='default'] {
     --sidebar-accent-foreground: oklch(0.216 0.006 56.043);
     --sidebar-border: oklch(0.923 0.003 48.717);
     --sidebar-ring: oklch(0.262 0 0);
+    --link: oklch(58.705% 0.14712 265.622);
 }
 
 html.dark[data-theme-family='default'] {
@@ -64,4 +65,5 @@ html.dark[data-theme-family='default'] {
     --sidebar-accent-foreground: oklch(0.985 0.001 106.423);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.985 0.001 106.423);
+    --link: oklch(58.705% 0.14712 265.622);
 }

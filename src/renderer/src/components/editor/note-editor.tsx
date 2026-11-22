@@ -1,40 +1,12 @@
-import {
-    forwardRef,
-    useCallback,
-    useEffect,
-    useImperativeHandle,
-    useMemo,
-    useReducer,
-    type HTMLAttributes
-} from 'react'
-import { EditorContent, useEditor, type Editor } from '@tiptap/react'
-import {
-    Bold,
-    Italic,
-    Strikethrough,
-    Code,
-    Highlighter,
-    List,
-    ListOrdered,
-    ListTodo,
-    Quote,
-    Code2,
-    Link as LinkIcon,
-    Unlink,
-    Undo2,
-    Redo2
-} from 'lucide-react'
-
-import { Button } from '@renderer/components/ui/button'
-import { Separator } from '@renderer/components/ui/separator'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@renderer/components/ui/tooltip'
+import { forwardRef, useEffect, useImperativeHandle, useRef, type HTMLAttributes } from 'react'
+import { createMarkdownEditor, type MarkdownEditor } from './cm'
+import { resolveEnabledPlugins } from './cm/core/registry'
+import { useSettingsStore } from '@renderer/store/settings-store'
 import { cn } from '@renderer/lib/utils'
-import { emptyDocJson, jsonToDoc, type JSONDoc } from './pm/doc'
-import { buildExtensions } from './extensions'
-import './pm/editor.css'
 
 export interface NoteEditorRef {
-    getJSON: () => JSONDoc | null
+    /** 当前 markdown 源文本 */
+    getMarkdown: () => string | null
     clear: () => void
 }
 
@@ -42,291 +14,95 @@ interface NoteEditorProps extends Omit<
     HTMLAttributes<HTMLDivElement>,
     'onChange' | 'defaultValue'
 > {
-    defaultValue?: JSONDoc | null
+    defaultValue?: string | null
+    /** 独立标题（与正文解耦）；编辑态可输入，预览态只读展示 */
+    title?: string
     readonly?: boolean
-    placeholder?: string
-    showToolbar?: boolean
-    onChange?: (doc: JSONDoc) => void
+    onChange?: (markdown: string) => void
+    onTitleChange?: (title: string) => void
     /** 初始光标文档位置：打开编辑器时把焦点放到这里（越界时自动收敛到文档末尾） */
     initialCursor?: number
     /** 光标每次移动时回调，供上层落库 */
     onCursorChange?: (position: number) => void
 }
 
-/** 初始化内容：解析失败（脏数据等）回落空文档，绝不白屏 */
-function safeContent(defaultValue: JSONDoc | null | undefined): JSONDoc {
-    if (!defaultValue) return emptyDocJson()
-    // 用 doc.ts 的 jsonToDoc 校验一次（内部已兜底），返回校验通过的内容；解析失败则给空文档
-    jsonToDoc(defaultValue)
-    return defaultValue
-}
-
-/* ---------------- 工具栏辅助 ---------------- */
-
-function ToolbarButton({
-    title,
-    onClick,
-    active,
-    disabled,
-    children
-}: {
-    title: string
-    onClick: () => void
-    active?: boolean
-    disabled?: boolean
-    children: React.ReactNode
-}): React.ReactElement {
-    return (
-        <Tooltip>
-            <TooltipTrigger
-                render={
-                    <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={onClick}
-                        disabled={disabled}
-                        className={cn(active && 'bg-muted text-foreground')}
-                    >
-                        {children}
-                    </Button>
-                }
-            />
-            <TooltipContent side="bottom">
-                <p>{title}</p>
-            </TooltipContent>
-        </Tooltip>
-    )
-}
-
+/**
+ * markdown 笔记编辑器（CodeMirror 6 live preview）。
+ * 本组件由上层用 key 按笔记重挂载：编辑器只在挂载时创建一次，
+ * 挂载内 props（defaultValue/onChange/initialCursor）恒定不变，无需响应式同步。
+ * 插件开关实时生效：订阅 settings-store，变化时经 compartment 重装扩展。
+ */
 export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(function NoteEditor(
-    {
-        defaultValue,
-        readonly = false,
-        placeholder,
-        showToolbar = false,
-        onChange,
-        initialCursor,
-        onCursorChange,
-        className
-    },
+    { defaultValue, title, readonly = false, onChange, onTitleChange, initialCursor, onCursorChange, className },
     ref
 ) {
-    // 本组件由 App 用 key 按笔记重挂载：useEditor/effect 只在挂载时创建一次，
-    // 挂载内 props（defaultValue/onChange/onCursorChange/initialCursor）恒定不变，
-    // 因此直接引用 props 即可，无需 ref 中转。
-    // 每次事务强制一次重渲染，驱动工具栏 active 态更新
-    const [, bump] = useReducer((n: number) => n + 1, 0)
+    const containerRef = useRef<HTMLDivElement>(null)
+    const editorRef = useRef<MarkdownEditor | null>(null)
 
-    const extensions = useMemo(() => buildExtensions(placeholder), [placeholder])
-
-    /**
-     * 选择 useEditor + <EditorContent>：单组件编辑器用 hook 最贴合（Composable <Tiptap> 面向多编辑器场景）。
-     * 传入空 deps → 只在挂载时创建一次，content/editable 取自挂载时的 props，之后的
-     * React 重渲染（store 更新、工具栏 bump）不会重建或重置文档。
-     */
-    const editor = useEditor(
-        {
-            extensions,
-            content: safeContent(defaultValue),
-            editable: !readonly,
-            immediatelyRender: false,
-            shouldRerenderOnTransaction: false,
-            onUpdate: ({ editor }) => {
-                onChange?.(editor.getJSON() as JSONDoc)
-            },
-            onTransaction: ({ editor, transaction }) => {
-                // 光标移动（含联想/方向键）随事务上报，便于上层存储
-                if (transaction.selectionSet) onCursorChange?.(editor.state.selection.head)
-                bump() // 刷新工具栏 active 态
-            }
-        },
-        []
-    )
-
-    // 进入编辑页自动聚焦并把光标放到保存的位置（收敛到文档范围内）
     useEffect(() => {
-        if (!editor) return
-        const savedPos = Math.max(0, initialCursor ?? 0)
-        const size = editor.state.doc.content.size
-        const target = Math.min(savedPos, Math.max(0, size))
-        const raf = requestAnimationFrame(() => {
-            if (!editor || editor.isDestroyed) return
-            editor.commands.setTextSelection(target)
-            if (editor.isEditable) editor.commands.focus()
+        const container = containerRef.current
+        if (!container) return
+        const editor = createMarkdownEditor({
+            doc: defaultValue ?? '',
+            readonly,
+            enabledPlugins: resolveEnabledPlugins(useSettingsStore.getState().plugins),
+            host: { onChange, onCursorChange },
+            parent: container
         })
-        return () => cancelAnimationFrame(raf)
-    }, [editor])
+        editorRef.current = editor
+        // 进入编辑页自动聚焦并把光标放到保存的位置（收敛到文档范围内）
+        const raf = requestAnimationFrame(() => {
+            // 组件已卸载（editorRef 清空）则跳过
+            if (editorRef.current !== editor) return
+            const view = editor.view
+            const target = Math.min(Math.max(0, initialCursor ?? 0), view.state.doc.length)
+            view.dispatch({ selection: { anchor: target }, scrollIntoView: true })
+            if (!readonly) view.focus()
+        })
+        return () => {
+            cancelAnimationFrame(raf)
+            editor.destroy()
+            editorRef.current = null
+        }
+        // 挂载时一次性创建：父级以 key={note.id} 重挂载，挂载内 props 恒定
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    // 插件开关变化：整体重装（文档与撤销历史保留）
+    const pluginOverrides = useSettingsStore((s) => s.plugins)
+    useEffect(() => {
+        editorRef.current?.reconfigurePlugins(resolveEnabledPlugins(pluginOverrides))
+    }, [pluginOverrides])
 
     useImperativeHandle(
         ref,
         () => ({
-            getJSON: () => (editor ? (editor.getJSON() as JSONDoc) : null),
+            getMarkdown: () =>
+                editorRef.current ? editorRef.current.view.state.doc.toString() : null,
             clear: () => {
+                const editor = editorRef.current
                 if (!editor) return
-                editor.commands.clearContent()
-                onChange?.(editor.getJSON() as JSONDoc)
+                editor.view.dispatch({
+                    changes: { from: 0, to: editor.view.state.doc.length, insert: '' }
+                })
             }
         }),
-        [editor]
+        []
     )
-
-    const run = useCallback(
-        (fn: (ed: Editor) => void) => {
-            if (!editor) return
-            fn(editor)
-            editor.commands.focus()
-        },
-        [editor]
-    )
-
-    const toggleLink = useCallback(() => {
-        if (!editor) return
-        if (editor.isActive('link')) {
-            editor.chain().focus().extendMarkRange('link').unsetLink().run()
-            return
-        }
-        const url = window.prompt('链接地址')
-        if (url) editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
-    }, [editor])
 
     return (
-        <div className={cn('flex flex-col min-h-0 min-w-0', className)}>
-            {showToolbar && editor ? (
-                <div className="flex items-center h-9 shrink-0 gap-0.5 border-b border-border px-2 text-xs text-muted-foreground">
-                    <ToolbarButton
-                        title="撤销"
-                        disabled={!editor.can().undo()}
-                        onClick={() => run((ed) => ed.chain().undo().run())}
-                    >
-                        <Undo2 size={15} />
-                    </ToolbarButton>
-                    <ToolbarButton
-                        title="重做"
-                        disabled={!editor.can().redo()}
-                        onClick={() => run((ed) => ed.chain().redo().run())}
-                    >
-                        <Redo2 size={15} />
-                    </ToolbarButton>
-                    <Separator orientation="vertical" className="w-[1.5px]! mx-1 h-4 my-auto" />
-
-                    <ToolbarButton
-                        title="标题 1"
-                        active={editor.isActive('heading', { level: 1 })}
-                        onClick={() => run((ed) => ed.chain().toggleHeading({ level: 1 }).run())}
-                    >
-                        H1
-                    </ToolbarButton>
-                    <ToolbarButton
-                        title="标题 2"
-                        active={editor.isActive('heading', { level: 2 })}
-                        onClick={() => run((ed) => ed.chain().toggleHeading({ level: 2 }).run())}
-                    >
-                        H2
-                    </ToolbarButton>
-                    <ToolbarButton
-                        title="标题 3"
-                        active={editor.isActive('heading', { level: 3 })}
-                        onClick={() => run((ed) => ed.chain().toggleHeading({ level: 3 }).run())}
-                    >
-                        H3
-                    </ToolbarButton>
-                    <ToolbarButton
-                        title="标题 4"
-                        active={editor.isActive('heading', { level: 4 })}
-                        onClick={() => run((ed) => ed.chain().toggleHeading({ level: 4 }).run())}
-                    >
-                        H4
-                    </ToolbarButton>
-                    <Separator orientation="vertical" className="w-[1.5px]! mx-1 h-4 my-auto" />
-
-                    <ToolbarButton
-                        title="加粗"
-                        active={editor.isActive('bold')}
-                        onClick={() => run((ed) => ed.chain().toggleBold().run())}
-                    >
-                        <Bold size={15} />
-                    </ToolbarButton>
-                    <ToolbarButton
-                        title="斜体"
-                        active={editor.isActive('italic')}
-                        onClick={() => run((ed) => ed.chain().toggleItalic().run())}
-                    >
-                        <Italic size={15} />
-                    </ToolbarButton>
-                    <ToolbarButton
-                        title="删除线"
-                        active={editor.isActive('strike')}
-                        onClick={() => run((ed) => ed.chain().toggleStrike().run())}
-                    >
-                        <Strikethrough size={15} />
-                    </ToolbarButton>
-                    <ToolbarButton
-                        title="行内代码"
-                        active={editor.isActive('code')}
-                        onClick={() => run((ed) => ed.chain().toggleCode().run())}
-                    >
-                        <Code size={15} />
-                    </ToolbarButton>
-                    <ToolbarButton
-                        title="高亮"
-                        active={editor.isActive('highlight')}
-                        onClick={() => run((ed) => ed.chain().toggleHighlight().run())}
-                    >
-                        <Highlighter size={15} />
-                    </ToolbarButton>
-                    <Separator orientation="vertical" className="w-[1.5px]! mx-1 h-4 my-auto" />
-
-                    <ToolbarButton
-                        title="无序列表"
-                        active={editor.isActive('bulletList')}
-                        onClick={() => run((ed) => ed.chain().toggleBulletList().run())}
-                    >
-                        <List size={15} />
-                    </ToolbarButton>
-                    <ToolbarButton
-                        title="有序列表"
-                        active={editor.isActive('orderedList')}
-                        onClick={() => run((ed) => ed.chain().toggleOrderedList().run())}
-                    >
-                        <ListOrdered size={15} />
-                    </ToolbarButton>
-                    <ToolbarButton
-                        title="任务列表"
-                        active={editor.isActive('taskList')}
-                        onClick={() => run((ed) => ed.chain().toggleTaskList().run())}
-                    >
-                        <ListTodo size={15} />
-                    </ToolbarButton>
-                    <ToolbarButton
-                        title="引用"
-                        active={editor.isActive('blockquote')}
-                        onClick={() => run((ed) => ed.chain().toggleBlockquote().run())}
-                    >
-                        <Quote size={15} />
-                    </ToolbarButton>
-                    <ToolbarButton
-                        title="代码块"
-                        active={editor.isActive('codeBlock')}
-                        onClick={() => run((ed) => ed.chain().toggleCodeBlock().run())}
-                    >
-                        <Code2 size={15} />
-                    </ToolbarButton>
-                    <ToolbarButton
-                        title="链接"
-                        active={editor.isActive('link')}
-                        onClick={toggleLink}
-                    >
-                        {editor.isActive('link') ? <Unlink size={15} /> : <LinkIcon size={15} />}
-                    </ToolbarButton>
-                </div>
-            ) : null}
-            <div className="flex-1 h-full min-h-0 min-w-0 overflow-y-scroll">
-                <EditorContent
-                    editor={editor}
-                    spellCheck={false}
-                    className="flex-1 min-h-0 h-full px-8 py-3 max-w-180 mx-auto text-sm leading-relaxed outline-none"
+        <div className={cn('flex flex-col min-h-0 min-w-0 h-full', className)}>
+            {readonly ? (
+                <div className="cm-note-title">{title || 'Untitled'}</div>
+            ) : (
+                <input
+                    className="cm-note-title cm-note-title-input"
+                    value={title ?? ''}
+                    placeholder="Untitled"
+                    onChange={(e) => onTitleChange?.(e.target.value)}
                 />
-            </div>
+            )}
+            <div ref={containerRef} className="flex-1 min-h-0 min-w-0 overflow-hidden" />
         </div>
     )
 })

@@ -14,6 +14,7 @@ declare global {
                 list: () => Promise<
                     {
                         id: string
+                        title: string
                         content: string
                         mtime: string
                         ctime: string
@@ -38,7 +39,7 @@ declare global {
                 }>
                 update: (
                     id: string,
-                    payload: { content: string; mtime: string; cursor: number }
+                    payload: { title: string; content: string; mtime: string; cursor: number }
                 ) => Promise<{
                     id: string
                     content: string
@@ -75,6 +76,9 @@ declare global {
             }
             images: {
                 save: (data: Uint8Array, ext: string) => Promise<string>
+            }
+            system: {
+                openExternal: (url: string) => void
             }
         }
     }

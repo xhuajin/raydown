@@ -2,9 +2,8 @@ export const KEYMAP = {
     newNote: 'Ctrl+N',
     openNote: 'Enter',
     actionsMenu: 'Ctrl+K',
-    toggleToolbar: 'Ctrl+T',
     commandPanel: 'Ctrl+P',
-    // 仅列表页认领：切换左侧面板显隐；编辑页放行给 ProseMirror 的加粗
+    // 仅列表页认领：切换左侧面板显隐；编辑页放行给编辑器的加粗
     togglePanel: 'Ctrl+B',
     copyNote: 'Ctrl+C',
     // Ctrl+S 两个页面共用：编辑页手动保存（saveNote），列表页分享（shareNote）

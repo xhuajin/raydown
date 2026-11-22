@@ -16,7 +16,7 @@ import { TooltipProvider } from './components/ui/tooltip'
 import { Kbd } from './components/ui/kbd'
 import { cn } from './lib/utils'
 
-/** Page1 右侧只读预览：用 ProseMirror 渲染选中笔记的内容与元信息 */
+/** Page1 右侧只读预览：用 CodeMirror live preview 渲染选中笔记的内容与元信息 */
 function PreviewPane() {
     const selectedNote = useNoteStore((s) => s.selectedNote)
     const notes = useNoteStore((s) => s.notes)
@@ -45,9 +45,9 @@ function PreviewPane() {
             <NoteEditor
                 key={selectedNote.id}
                 defaultValue={selectedNote.content}
+                title={selectedNote.title}
                 className="flex-1 min-h-0"
                 readonly
-                showToolbar={false}
             />
             <div className="border-t border-border p-3 text-[11px] text-muted-foreground space-y-1 select-none">
                 <div className="flex justify-between gap-4">
@@ -67,22 +67,23 @@ function PreviewPane() {
 function NoteEditorPage() {
     const selectedNote = useNoteStore((s) => s.selectedNote)
     const draft = useNoteStore((s) => s.draft)
+    const draftTitle = useNoteStore((s) => s.draftTitle)
     const setDraft = useNoteStore((s) => s.setDraft)
+    const setDraftTitle = useNoteStore((s) => s.setDraftTitle)
     const setCursor = useNoteStore((s) => s.setCursor)
-    const toolbarVisible = useNoteStore((s) => s.toolbarVisible)
 
     return (
         <NoteEditor
             key={selectedNote?.id ?? 'new-note'}
             defaultValue={draft}
+            title={draftTitle ?? ''}
             // 打开笔记时 store 已按该笔记保存的光标初始化；此处只读取一次作为初始焦点
             initialCursor={useNoteStore.getState().cursor}
             onCursorChange={setCursor}
             className="h-full bg-background text-sm"
-            showToolbar={toolbarVisible}
             readonly={false}
-            placeholder=""
             onChange={(d) => setDraft(d)}
+            onTitleChange={(t) => setDraftTitle(t)}
         />
     )
 }

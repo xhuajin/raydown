@@ -18,17 +18,15 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import {
     closeDatabase,
-    deleteNoteRow,
     deleteWorkspaceRow,
-    insertNote,
     insertWorkspace,
-    listNotesRows,
     listWorkspaceRows,
-    moveNoteToWorkspace,
     openDatabase,
-    renameWorkspaceRow,
-    updateNoteRow
+    renameWorkspaceRow
 } from './db'
+import { initNotesDir } from './notes/files'
+import { createNote, deleteNote, listNotes, moveNoteToWorkspace, updateNote } from './notes/store'
+import { migrateLegacyNotes } from './migrate/legacy-notes'
 
 // 保存主窗口引用
 let mainWindow: BrowserWindow | null = null
@@ -238,15 +236,25 @@ app.whenReady().then(() => {
     // 原有的 IPC 测试保留
     ipcMain.on('ping', () => console.log('pong'))
 
-    // 🎯 注册笔记数据 IPC
-    ipcMain.handle('notes:list', () => listNotesRows())
-    ipcMain.handle('notes:create', (_event, input) => insertNote(input))
+    // 🎯 注册笔记数据 IPC（内容存 markdown 文件，元数据在 notes_meta 表）
+    ipcMain.handle('notes:list', () => listNotes())
+    ipcMain.handle('notes:create', (_event, input) => createNote(input))
     ipcMain.handle(
         'notes:update',
-        (_event, id: string, payload: { content: string; mtime: string; cursor: number }) =>
-            updateNoteRow(id, payload)
+        (
+            _event,
+            id: string,
+            payload: { title: string; content: string; mtime: string; cursor: number }
+        ) => updateNote(id, payload)
     )
-    ipcMain.handle('notes:delete', (_event, id: string) => deleteNoteRow(id))
+    ipcMain.handle('notes:delete', (_event, id: string) => deleteNote(id))
+
+    // 🎯 外部链接打开（编辑器 Ctrl+click 跟随链接用；只放行 http/https）
+    ipcMain.on('system:open-external', (_event, url: string) => {
+        if (typeof url === 'string' && /^https?:\/\//i.test(url)) {
+            shell.openExternal(url)
+        }
+    })
 
     // 🎯 注册工作区数据 IPC
     ipcMain.handle('workspaces:list', () => listWorkspaceRows())
@@ -276,8 +284,10 @@ app.whenReady().then(() => {
     // 🎯 图片自定义协议（dev http / 打包 file 都能加载粘贴的图片）
     registerImageProtocol()
 
-    // 🎯 打开 SQLite 数据库（数据存 userData/raydown.db）
+    // 🎯 打开 SQLite 数据库（元数据存 userData/raydown.db），随后初始化笔记目录并执行一次性迁移
     openDatabase(join(app.getPath('userData'), 'raydown.db'))
+    initNotesDir(join(app.getPath('userData'), 'notes'))
+    migrateLegacyNotes()
 
     // 🎯 创建托盘图标（关闭窗口后仍可从托盘唤起）
     createTray()

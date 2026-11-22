@@ -15,7 +15,7 @@ import {
     renameWorkspace as apiRenameWorkspace,
     type Workspace
 } from '@renderer/api/workspaces'
-import { emptyDocJson, isEmptyDoc, type JSONDoc } from '@renderer/components/editor/pm/doc'
+import { isEmptyMarkdown } from '@renderer/lib/markdown-doc'
 
 export type Page = 'list' | 'editor'
 
@@ -35,11 +35,9 @@ function workspaceIdOf(note: Note): string {
     return note.workspace_id ?? DEFAULT_WORKSPACE_ID
 }
 
-/** 判断两份 JSONDoc 内容是否一致：用于「打开后未修改就退出则不保存」的判断 */
-function docsEqual(a: JSONDoc | null, b: JSONDoc | null): boolean {
-    if (a === b) return true
-    if (!a || !b) return false
-    return JSON.stringify(a) === JSON.stringify(b)
+/** 判断草稿与打开时的快照是否一致：用于「打开后未修改就退出则不保存」的判断 */
+function draftsEqual(a: string | null, b: string | null): boolean {
+    return a === b
 }
 
 /**
@@ -88,23 +86,25 @@ interface NoteStore {
     /** BottomBar 的 action panel 开关：sidebar 右键 / Ctrl+K 共用 */
     actionMenuOpen: boolean
     setActionMenuOpen: (open: boolean) => void
-    /** 编辑器工具栏显隐：Ctrl+T / BottomBar 按钮切换，默认隐藏 */
-    toolbarVisible: boolean
-    toggleToolbar: () => void
     // Page1 侧栏预览动作
     selectNote: (id: string) => void
     // Page2 编辑/新建
     page: Page
     newNoteActive: boolean
     editingActive: boolean
-    draft: JSONDoc | null
+    draft: string | null
+    /** 独立标题草稿：与正文解耦，空/空白时落库为 Untitled */
+    draftTitle: string | null
     /** 打开编辑器时的初始草稿快照：退出时作为「是否修改过」的比对基准 */
-    mountDraft: JSONDoc | null
+    mountDraft: string | null
+    /** 打开编辑器时的初始标题快照 */
+    mountTitle: string | null
     /** 编辑器光标文档位置（0 表示文档开头），随草稿一起落库 */
     cursor: number
     /** 自动保存目标 id：编辑既有便为 selectedId；新建笔记在首次落库后赋值 */
     draftId: string | null
-    setDraft: (draft: JSONDoc | null) => void
+    setDraft: (draft: string | null) => void
+    setDraftTitle: (title: string) => void
     setCursor: (cursor: number) => void
     openNewNote: () => void
     openSelectedNote: () => void
@@ -123,23 +123,26 @@ interface NoteStore {
 export const useNoteStore = create<NoteStore>((set, get) => {
     let saveTimer: ReturnType<typeof setTimeout> | null = null
 
-    /** 把当前草稿写入 draftId 指向的笔记；新建笔记首次写入时先建行拿到 id */
+    /** 把当前草稿写入 draftId 指向的笔记；新建笔记首次写入时先建行拿到 id。
+     *  内容与标题任一非空即落库；标题空白时落库为 Untitled */
     async function persistDraft(): Promise<void> {
         const s = get()
         const { draft } = s
-        if (!draft || isEmptyDoc(draft)) return
+        const title = (s.draftTitle ?? '').trim() || 'Untitled'
+        const hasContent = !isEmptyMarkdown(draft)
+        if (!hasContent && title === 'Untitled') return
 
         if (s.newNoteActive) {
             if (!s.draftId) {
                 // 还没落库：先创建一条笔记（获得稳定 id），归属当前工作区
                 const workspaceId = s.activeWorkspaceId ?? DEFAULT_WORKSPACE_ID
-                const note = await createNote(draft, get().cursor, workspaceId)
+                const note = await createNote(title, draft ?? '', get().cursor, workspaceId)
                 set({ draftId: note.id, selectedId: note.id, selectedNote: note })
             } else {
-                await updateNote(s.draftId, { content: draft, cursor: get().cursor })
+                await updateNote(s.draftId, { title, content: draft ?? '', cursor: get().cursor })
             }
         } else if (s.editingActive && s.selectedId) {
-            await updateNote(s.selectedId, { content: draft, cursor: get().cursor })
+            await updateNote(s.selectedId, { title, content: draft ?? '', cursor: get().cursor })
         } else {
             return
         }
@@ -172,14 +175,13 @@ export const useNoteStore = create<NoteStore>((set, get) => {
         actionMenuOpen: false,
         setActionMenuOpen: (open) => set({ actionMenuOpen: open }),
 
-        toolbarVisible: false,
-        toggleToolbar: () => set((s) => ({ toolbarVisible: !s.toolbarVisible })),
-
         page: 'list',
         newNoteActive: false,
         editingActive: false,
         draft: null,
+        draftTitle: null,
         mountDraft: null,
+        mountTitle: null,
         cursor: 0,
         draftId: null,
         saveError: null,
@@ -192,6 +194,12 @@ export const useNoteStore = create<NoteStore>((set, get) => {
         setDraft: (draft) => {
             set({ draft })
             // 每次改动重置防抖计时：停止输入后才真正落盘
+            if (saveTimer) clearTimeout(saveTimer)
+            saveTimer = setTimeout(() => void get().flushSave(), AUTOSAVE_DELAY)
+        },
+
+        setDraftTitle: (title) => {
+            set({ draftTitle: title })
             if (saveTimer) clearTimeout(saveTimer)
             saveTimer = setTimeout(() => void get().flushSave(), AUTOSAVE_DELAY)
         },
@@ -263,8 +271,10 @@ export const useNoteStore = create<NoteStore>((set, get) => {
                 newNoteActive: true,
                 editingActive: false,
                 selectedNote: null,
-                draft: emptyDocJson(),
-                mountDraft: emptyDocJson(),
+                draft: '',
+                draftTitle: '',
+                mountDraft: '',
+                mountTitle: '',
                 cursor: 0,
                 draftId: null
             }),
@@ -272,13 +282,16 @@ export const useNoteStore = create<NoteStore>((set, get) => {
         openSelectedNote: () => {
             const { selectedNote } = get()
             if (!selectedNote) return
-            const draft = selectedNote.content ?? emptyDocJson()
+            const draft = selectedNote.content ?? ''
+            const draftTitle = selectedNote.title ?? ''
             set({
                 page: 'editor',
                 newNoteActive: false,
                 editingActive: true,
                 draft,
+                draftTitle,
                 mountDraft: draft,
+                mountTitle: draftTitle,
                 cursor: selectedNote.cursor ?? 0,
                 draftId: selectedNote.id
             })
@@ -287,7 +300,8 @@ export const useNoteStore = create<NoteStore>((set, get) => {
         openEditorFor: (id) =>
             set((s) => {
                 const note = s.notes.find((n) => n.id === id) ?? null
-                const draft = note?.content ?? emptyDocJson()
+                const draft = note?.content ?? ''
+                const draftTitle = note?.title ?? ''
                 return {
                     selectedId: id,
                     selectedNote: note,
@@ -295,7 +309,9 @@ export const useNoteStore = create<NoteStore>((set, get) => {
                     newNoteActive: false,
                     editingActive: true,
                     draft,
+                    draftTitle,
                     mountDraft: draft,
+                    mountTitle: draftTitle,
                     cursor: note?.cursor ?? 0,
                     draftId: id
                 }
@@ -307,18 +323,19 @@ export const useNoteStore = create<NoteStore>((set, get) => {
                 clearTimeout(saveTimer)
                 saveTimer = null
             }
-            const { draft, mountDraft } = get()
-            // 打开后内容没有实质修改（含新建空笔记直接退出）→ 不触发保存；
+            const { draft, mountDraft, draftTitle, mountTitle } = get()
+            // 打开后内容或标题没有实质修改（含新建空笔记直接退出）→ 不触发保存；
             // 否则兜底落盘（覆盖最后防抖窗口内的改动）
-            if (draft && !docsEqual(draft, mountDraft)) {
+            const contentChanged = draft !== null && !draftsEqual(draft, mountDraft)
+            const titleChanged = (draftTitle ?? '') !== (mountTitle ?? '')
+            if (contentChanged || titleChanged) {
                 void flushSaveLogged()
             }
             set({
                 page: 'list',
                 newNoteActive: false,
                 editingActive: false,
-                draftId: null,
-                toolbarVisible: false
+                draftId: null
             })
         },
 

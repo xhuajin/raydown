@@ -40,7 +40,6 @@ import { useMessage } from '@renderer/contexts/MessageContext'
 import { KEYMAP, registerKeymapHandler } from '@renderer/store/keymap-store'
 import { useNoteStore } from '@renderer/store/note-store'
 import { DEFAULT_WORKSPACE_ID, type Workspace } from '@renderer/api/workspaces'
-import { firstLineOfDoc } from '@renderer/components/editor/pm/doc'
 import { cn } from '@renderer/lib/utils'
 
 /** 工作区新增/重命名共用的弹窗（由父级条件渲染，打开即初始状态） */
@@ -286,7 +285,7 @@ export function TopBar() {
     }
 
     // 编辑页标题：默认取笔记首行，没有则显示空
-    const editorTitle = selectedNote ? firstLineOfDoc(selectedNote.content) : ''
+    const editorTitle = selectedNote ? (selectedNote.title || 'Untitled') : ''
 
     const title = inEditor ? editorTitle || 'New Note' : 'Raydown'
 
@@ -332,7 +331,7 @@ export function TopBar() {
                                         }}
                                     >
                                         <FileText className="size-4 shrink-0 mr-1" />
-                                        <span>{firstLineOfDoc(note.content) || 'Untitled'}</span>
+                                        <span>{note.title || 'Untitled'}</span>
                                         {selectedNote?.id === note.id && (
                                             <CommandShortcut className="font-sans tracking-normal text-muted-foreground!">
                                                 current

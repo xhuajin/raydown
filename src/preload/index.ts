@@ -1,9 +1,10 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
-// 笔记数据结构（与渲染层 api/notes.ts 的 Note 一致，content 为 JSON 字符串）
+// 笔记数据结构（与渲染层 api/notes.ts 的 Note 一致；title 为独立标题，content 为 markdown 源文本）
 export interface NoteApi {
     id: string
+    title: string
     content: string
     mtime: string
     ctime: string
@@ -30,7 +31,7 @@ export interface ElectronAPI {
         create: (note: NoteApi) => Promise<NoteApi>
         update: (
             id: string,
-            payload: { content: string; mtime: string; cursor: number }
+            payload: { title: string; content: string; mtime: string; cursor: number }
         ) => Promise<NoteApi>
         remove: (id: string) => Promise<boolean>
         moveWorkspace: (id: string, workspaceId: string | null) => Promise<NoteApi>
@@ -48,6 +49,10 @@ export interface ElectronAPI {
     images: {
         save: (data: Uint8Array, ext: string) => Promise<string>
     }
+    system: {
+        /** 用系统默认方式打开外部链接（主进程只放行 http/https） */
+        openExternal: (url: string) => void
+    }
 }
 
 // 暴露 API
@@ -62,8 +67,8 @@ const api: ElectronAPI = {
 
     togglePin: () => ipcRenderer.invoke('window-toggle-pin'),
 
-    onMaximizedChange: (callback: (isMaximized: boolean) => void) => {
-        const handler = (_event: any, isMaximized: boolean) => {
+    onMaximizedChange: (callback: (isMaximized: boolean) => void): (() => void) => {
+        const handler = (_event: unknown, isMaximized: boolean): void => {
             callback(isMaximized)
         }
         ipcRenderer.on('window-maximized-changed', handler)
@@ -96,6 +101,10 @@ const api: ElectronAPI = {
 
     images: {
         save: (data, ext) => ipcRenderer.invoke('images:save', data, ext)
+    },
+
+    system: {
+        openExternal: (url) => ipcRenderer.send('system:open-external', url)
     }
 }
 

@@ -1,14 +1,14 @@
 import dayjs from 'dayjs'
-import type { JSONDoc } from '@renderer/components/editor/pm/doc'
 
 /**
- * 笔记数据结构。
- * content 为 ProseMirror 文档 JSON（doc → toJSON）。
- * 存储于主进程 SQLite（userData/raydown.db），渲染层经 IPC 访问。
+ * 笔记数据结构。标题为独立字段（不取自正文）；content 为 markdown 源文本。
+ * 正文持久化在主进程 userData/notes/<标题>.md 文件（文件名由标题派生），
+ * 元数据（含标题）存 SQLite notes_meta 表，渲染层经 IPC 访问。
  */
 export interface Note {
     id: string
-    content: JSONDoc
+    title: string
+    content: string
     mtime: string
     ctime: string
     /** 最近一次编辑时的光标文档位置（0 表示文档开头） */
@@ -17,33 +17,9 @@ export interface Note {
     workspace_id: string | null
 }
 
-/** IPC 传输用的扁平结构：content 为 JSON 字符串 */
-interface NoteWire {
-    id: string
-    content: string
-    mtime: string
-    ctime: string
-    cursor: number
-    workspace_id: string | null
-}
-
-function toWire(note: Note): NoteWire {
-    return {
-        ...note,
-        content: JSON.stringify(note.content),
-        cursor: note.cursor ?? 0,
-        workspace_id: note.workspace_id ?? null
-    }
-}
-
-function toNote(wire: NoteWire): Note {
-    return { ...wire, content: JSON.parse(wire.content), cursor: wire.cursor ?? 0 }
-}
-
 /** 查询全部笔记，按修改时间倒序（最新在前） */
 export async function listNotes(): Promise<Note[]> {
-    const wires = await window.electronAPI.notes.list()
-    return wires.map(toNote)
+    return window.electronAPI.notes.list()
 }
 
 export interface NoteSource {
@@ -53,34 +29,36 @@ export interface NoteSource {
 export const NoteSource: NoteSource = { DESKTOP: 'desktop' }
 
 export async function createNote(
-    content: JSONDoc,
+    title: string,
+    content: string,
     cursor = 0,
     workspaceId: string | null = null
 ): Promise<Note> {
     const now = dayjs().toISOString()
     const note: Note = {
         id: createNoteId(),
+        title: title.trim() || 'Untitled',
         content,
         mtime: now,
         ctime: now,
         cursor,
         workspace_id: workspaceId
     }
-    await window.electronAPI.notes.create(toWire(note))
+    await window.electronAPI.notes.create(note)
     return note
 }
 
 export async function updateNote(
     id: string,
-    { content, cursor }: { content: JSONDoc; cursor: number }
+    { title, content, cursor }: { title: string; content: string; cursor: number }
 ): Promise<{ newNote: Note }> {
     const mtime = dayjs().toISOString()
-    const wire = await window.electronAPI.notes.update(id, {
-        content: JSON.stringify(content),
+    const newNote = await window.electronAPI.notes.update(id, {
+        title: title.trim() || 'Untitled',
+        content,
         mtime,
         cursor
     })
-    const newNote: Note = toNote(wire)
     return { newNote }
 }
 
@@ -90,8 +68,7 @@ export async function deleteNote(id: string): Promise<void> {
 
 /** 把便签移入指定工作区（workspaceId 为 null 表示默认工作区） */
 export async function moveNoteToWorkspace(id: string, workspaceId: string | null): Promise<Note> {
-    const wire = await window.electronAPI.notes.moveWorkspace(id, workspaceId)
-    return toNote(wire)
+    return window.electronAPI.notes.moveWorkspace(id, workspaceId)
 }
 
 export function createNoteId(): string {
