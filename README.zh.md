@@ -9,8 +9,8 @@
 ## ✨ 特性
 
 - **键盘优先（Keyboard-first）**：绝大部分操作可在键盘上完成，双手无需离开键盘。
-- **Markdown 所见即所得**：基于 Tiptap 的富文本 / Markdown 编辑器，支持标题、列表、引用、代码块、数学公式等。
-- **本地优先存储**：笔记保存在本机 SQLite 数据库（`better-sqlite3`），数据完全离线、私有。
+- **Markdown 实时预览（Live Preview）**：基于 CodeMirror 6 的类 Obsidian 实时预览编辑器——直接编辑 markdown 源码，标题、列表、引用、代码块、数学公式等以装饰层实时渲染，源码永不被改写。
+- **本地优先存储**：笔记正文是本地 markdown 文件（`userData/notes/<标题>.md`），可随时用其他编辑器打开；元数据存于本机 SQLite 数据库。完全离线、私有，旧版 JSON 存储自动迁移。
 - **工作区**：创建多个工作区，管理不同类型的内容。
 
 ## 📦 安装
@@ -32,25 +32,28 @@ pnpm dev
 
 ## 🗂️ 架构
 
-项目采用 **electron-vite** 典型的四进程布局，核心渲染层代码位于 `src/renderer/src/`。
+项目采用 **electron-vite** 典型进程布局，核心渲染层代码位于 `src/renderer/src/`。
 
-- **Main 进程** — `src/main/index.ts`：窗口生命周期、SQLite 数据读写 IPC，以及自定义标题栏所需的窗口控制接口。
+- **Main 进程** — `src/main/index.ts`：窗口生命周期、SQLite 元数据读写 IPC、markdown 笔记文件管理（`notes/`）、旧版 JSON→markdown 一次性迁移（`migrate/`），以及自定义标题栏所需的窗口控制接口。
 - **Preload** — `src/preload/index.ts`：通过 `window.electronAPI` 桥接渲染层与主进程。
 - **Renderer** — `src/renderer/src/`：
-    - **状态管理**：Zustand，笔记与设置分别持久化到 SQLite / `localStorage`。
-    - **编辑器**：Tiptap 封装，基于 ProseMirror；笔记以 `JSONDoc` 结构存储。
-    - **数据层**：`api/notes.ts` 负责 CRUD 与分组，未来可平滑替换为远端后端。
+    - **状态管理**：Zustand，设置持久化到 `localStorage`。
+    - **编辑器**：基于 CodeMirror 6 的实时预览编辑器（`components/editor/cm/`）；每个功能都是可插拔的 `MarkdownPlugin`，注册于 `core/registry.ts`，可在设置页逐个开关。
+    - **数据层**：`api/notes.ts` 基于 markdown 文件 + SQLite 元数据负责 CRUD 与分组，未来可平滑替换为远端后端。
 
 ### 目录速览
 
 ```text
 src/
-├── main/                 # Electron 主进程（窗口、SQLite、IPC）
+├── main/                 # Electron 主进程（窗口、笔记文件、元数据、迁移）
+│   ├── notes/            # Markdown 笔记文件 + SQLite 元数据存取
+│   └── migrate/          # 旧版 JSON → markdown 一次性迁移
 ├── preload/              # 预加载脚本与类型定义
 └── renderer/src/
-    ├── components/       # UI 组件（编辑器、预览、侧边栏等）
+    ├── components/       # UI 组件（CodeMirror 6 编辑器、侧边栏等）
     ├── store/            # Zustand store 与快捷键调度
     ├── api/notes.ts      # 笔记数据层（CRUD + 分组）
+    ├── lib/              # 轻量 markdown 辅助函数（markdown-doc.ts）
     └── styles/           # Tailwind CSS v4 主题
 ```
 

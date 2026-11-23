@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.2.1] - 2026-11-23
+
+### Feature
+
+- 编辑器整体迁移至 CodeMirror 6（live preview）：编辑对象始终是 markdown 源文本，渲染全部为 Decoration/Widget 覆盖层，源码绝不被改写；各功能插件化（`MarkdownPlugin`），可在设置页逐个开关。
+- 独立标题：标题成为独立字段（不再取自正文首行），编辑态输入框 / 预览态展示，修改标题自动重命名笔记文件，空标题兜底 `Untitled`。
+- 代码块增强：围栏行显隐、语法高亮、行右侧语言标注（hover 反色 + 一键 Copy）、块内不折行横向滚动。
+- 列表体验优化：marker 支持 dash 级显隐、悬挂缩进按父文本列对齐、空项 Enter 减一层缩进 / 顶层退出列表。
+
+### Changed
+
+- 存储模型重构：笔记正文由 SQLite JSON 迁移为 `userData/notes/<标题>.md` markdown 文件（原子写入：临时文件 + rename），元数据（含独立 title）存入 SQLite `notes_meta` 表；旧 `notes` JSON 表只读保留，永不写入。
+- 自动迁移（`user_version` 门控，旧数据无感升级）：v1 旧 JSON 表 → markdown 文件（`legacy_id` 幂等 + 文件缺失自愈）；v2 提取每条笔记首行为独立标题（首行为代码围栏时不提取）。
+- 选区改为浏览器原生绘制（`::selection`），按字形精确高亮，代码块背景不遮挡。
+
+### Removed
+
+- 移除 Tiptap 编辑器（旧 Tiptap 代码暂时保留供参考，不再维护）。
+
 ## [1.2.0] - 2026-09-14
 
 ### Feature
